@@ -1,0 +1,9 @@
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/uninstall.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/uwaba_prototype_description_uninstall.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/test.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/edit_cache.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/rebuild_cache.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/list_install_components.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/install.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/install/local.dir
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/CMakeFiles/install/strip.dir
