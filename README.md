@@ -6,4 +6,4 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
 <p align="center">
 <img src="https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/docs/uSANMA%20Stack%20English.png" width="500" align="center">
 </p>
-
+* need to be revised.
