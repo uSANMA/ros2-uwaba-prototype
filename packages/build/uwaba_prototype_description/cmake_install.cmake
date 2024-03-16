@@ -49,6 +49,7 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT
     "/home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description/ros2_control"
     "/home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description/rviz"
     "/home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description/urdf"
+    "/home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description/config"
     )
 endif()
 
