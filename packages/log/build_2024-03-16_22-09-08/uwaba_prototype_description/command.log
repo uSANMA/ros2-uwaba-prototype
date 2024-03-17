@@ -1,0 +1,4 @@
+Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': /usr/bin/cmake --build /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description -- -j8 -l8
+Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': /usr/bin/cmake --build /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description -- -j8 -l8
+Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': /usr/bin/cmake --install /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description
+Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': /usr/bin/cmake --install /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description
