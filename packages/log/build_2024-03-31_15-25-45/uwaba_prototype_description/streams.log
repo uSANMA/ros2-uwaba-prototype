@@ -1,0 +1,39 @@
+[0.010s] Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': /usr/bin/cmake --build /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description -- -j8 -l8
+[0.027s] Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': /usr/bin/cmake --build /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description -- -j8 -l8
+[0.047s] Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': /usr/bin/cmake --install /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description
+[0.050s] -- Install configuration: ""
+[0.051s] -- Execute custom install script
+[0.051s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//launch/display.launch.py
+[0.052s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/Cube.002.dae
+[0.052s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/Cube.002.dae_history.log
+[0.052s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/left.tracks.dae
+[0.052s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/left.tracks.dae_history.log
+[0.052s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/right.tracks.dae
+[0.052s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/right.tracks.dae_history.log
+[0.053s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/Cube.002.dae
+[0.053s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/Cube.002.dae_history.log
+[0.053s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/left.tracks.dae
+[0.053s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/left.tracks.dae_history.log
+[0.053s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/right.tracks.dae
+[0.053s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/right.tracks.dae_history.log
+[0.054s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//rviz/urdf_config.rviz
+[0.054s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf/uwaba_prototype.urdf
+[0.054s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf/uwaba_prototype_misplaced_sup.urdf
+[0.054s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//config/ekf.yaml
+[0.054s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//config/nav2_params.yaml
+[0.055s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/ament_index/resource_index/package_run_dependencies/uwaba_prototype_description
+[0.055s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/ament_index/resource_index/parent_prefix_path/uwaba_prototype_description
+[0.055s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/ament_prefix_path.sh
+[0.055s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/ament_prefix_path.dsv
+[0.056s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/path.sh
+[0.056s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/path.dsv
+[0.056s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.bash
+[0.056s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.sh
+[0.056s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.zsh
+[0.057s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.dsv
+[0.057s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/package.dsv
+[0.060s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/ament_index/resource_index/packages/uwaba_prototype_description
+[0.061s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/cmake/uwaba_prototype_descriptionConfig.cmake
+[0.061s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/cmake/uwaba_prototype_descriptionConfig-version.cmake
+[0.061s] -- Up-to-date symlink: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/package.xml
+[0.063s] Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': /usr/bin/cmake --install /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description

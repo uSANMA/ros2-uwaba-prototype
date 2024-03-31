@@ -1,0 +1,39 @@
+[0.011s] Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description
+[0.019s] -- Found ament_cmake: 1.3.8 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.103s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.113s] -- Found xacro: 2.0.8 (/opt/ros/humble/share/xacro/cmake)
+[0.175s] -- Configuring done
+[0.178s] -- Generating done
+[0.179s] -- Build files have been written to: /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description
+[0.181s] Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description
+[0.184s] Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description -- -j8 -l8
+[0.201s] Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description -- -j8 -l8
+[0.222s] Invoking command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description
+[0.225s] -- Install configuration: ""
+[0.226s] -- Execute custom install script
+[0.226s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//launch/display.launch.py
+[0.230s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/Cube.002.dae
+[0.234s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/Cube.002.dae_history.log
+[0.238s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/left.tracks.dae
+[0.242s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/left.tracks.dae_history.log
+[0.246s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/right.tracks.dae
+[0.249s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/right.tracks.dae_history.log
+[0.253s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf/uwaba_prototype.urdf
+[0.257s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//config/ekf.yaml
+[0.260s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//config/nav2_params.yaml
+[0.264s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/ament_index/resource_index/package_run_dependencies/uwaba_prototype_description
+[0.267s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/ament_index/resource_index/parent_prefix_path/uwaba_prototype_description
+[0.271s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/ament_prefix_path.sh
+[0.274s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/ament_prefix_path.dsv
+[0.278s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/path.sh
+[0.281s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/path.dsv
+[0.285s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.bash
+[0.289s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.sh
+[0.292s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.zsh
+[0.296s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.dsv
+[0.299s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/package.dsv
+[0.303s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/ament_index/resource_index/packages/uwaba_prototype_description
+[0.307s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/cmake/uwaba_prototype_descriptionConfig.cmake
+[0.310s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/cmake/uwaba_prototype_descriptionConfig-version.cmake
+[0.314s] -- Symlinking: /home/frantches/Workspaces/ros2_ws/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/package.xml
+[0.318s] Invoked command in '/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description

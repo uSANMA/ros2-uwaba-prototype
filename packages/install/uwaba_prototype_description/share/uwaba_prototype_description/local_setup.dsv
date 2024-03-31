@@ -1,2 +1,1 @@
-source;share/uwaba_prototype_description/environment/ament_prefix_path.sh
-source;share/uwaba_prototype_description/environment/path.sh
+/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/ament_cmake_environment_hooks/local_setup.dsv

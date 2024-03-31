@@ -1,3 +1,4 @@
 {
-    "ros.distro": "humble"
+    "ros.distro": "humble",
+    "cmake.sourceDirectory": "/home/frantches/Workspaces/ros2_ws/packages/src/uwaba_prototype_description"
 }
