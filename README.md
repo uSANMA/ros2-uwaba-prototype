@@ -9,8 +9,8 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
 
 ## PROJECT NOTES
 ### List of implementations
-- [x] Add URDF file from [uwaba's model](https://github.com/uSANMA/blender-uwaba-prototype/blob/beta/uWABA/exports/uwaba_prototype/urdf/uwaba_prototype.urdf)
-- [x] Add meshes file from [uwaba's model](https://github.com/uSANMA/blender-uwaba-prototype/tree/beta/uWABA/exports/uwaba_prototype/meshes/dae)
+- [x] Add [URDF](https://github.com/uSANMA/blender-uwaba-prototype/blob/beta/uWABA/exports/uwaba_prototype_v2/urdf/uwaba_prototype.urdf) file from uwaba's model
+- [x] Add [meshes](https://github.com/uSANMA/blender-uwaba-prototype/tree/beta/uWABA/exports/uwaba_prototype_v2/meshes/dae) file from uwaba's model
 - Config directory implementations:
     - [ ] Implement Extended Kalman Filter file ([ekf.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/ekf.yaml))
     - [ ] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/nav2_params.yaml))[^1]
