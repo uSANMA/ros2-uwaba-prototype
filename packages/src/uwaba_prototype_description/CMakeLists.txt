@@ -9,8 +9,12 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(xacro REQUIRED)
 
+if(NOT EXISTS ros2_control)
+  file(MAKE_DIRECTORY ros2_control)
+endif()
+
 install(
-  DIRECTORY launch meshes ros2_control rviz urdf config
+  DIRECTORY launch meshes rviz urdf config ros2_control
   DESTINATION share/${PROJECT_NAME}/
 )
 
