@@ -33,7 +33,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     # Get the launch directory
-    bringup_dir = get_package_share_directory('nav2_bringup')
+    bringup_dir = get_package_share_directory('uwaba_prototype_nav2')
     launch_dir = os.path.join(bringup_dir, 'launch')
     # This checks that tb3 exists needed for the URDF. If not using TB3, its safe to remove.
     _ = get_package_share_directory('turtlebot3_gazebo')

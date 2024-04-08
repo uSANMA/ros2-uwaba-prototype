@@ -32,7 +32,7 @@ from nav2_common.launch import RewrittenYaml
 
 def generate_launch_description():
     # Get the launch directory
-    bringup_dir = get_package_share_directory('nav2_bringup')
+    bringup_dir = get_package_share_directory('uwaba_prototype_nav2')
 
     namespace = LaunchConfiguration('namespace')
     map_yaml_file = LaunchConfiguration('map')
@@ -85,7 +85,7 @@ def generate_launch_description():
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
-        default_value=os.path.join(bringup_dir, 'params', 'nav2_params.yaml'),
+        default_value=os.path.join(bringup_dir, 'param', 'nav2_params.yaml'),
         description='Full path to the ROS2 parameters file to use for all launched nodes',
     )
 

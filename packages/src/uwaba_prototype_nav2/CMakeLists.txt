@@ -12,7 +12,7 @@ find_package(nav2_common REQUIRED)
 find_package(navigation2 REQUIRED)
 
 install(
-  DIRECTORY config description launch world rviz maps
+  DIRECTORY config description launch world rviz maps params
   DESTINATION share/${PROJECT_NAME}/
 )
 
