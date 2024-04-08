@@ -1,0 +1,7 @@
+/home/frantches/ros2-uwaba-prototype/packages/build/*
+
+/home/frantches/ros2-uwaba-prototype/packages/install/*
+
+/home/frantches/ros2-uwaba-prototype/packages/log/*
+
+*/.gitignore
