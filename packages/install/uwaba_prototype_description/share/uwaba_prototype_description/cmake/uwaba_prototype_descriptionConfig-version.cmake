@@ -1,1 +1,0 @@
-/home/frantches/Workspaces/ros2_ws/packages/build/uwaba_prototype_description/ament_cmake_core/uwaba_prototype_descriptionConfig-version.cmake
