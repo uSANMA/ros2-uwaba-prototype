@@ -1,0 +1,7 @@
+/usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+  warnings.warn(
+  File "/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes/uros_std_msg_teste.py", line 5
+    from 
+         ^
+SyntaxError: invalid syntax
+

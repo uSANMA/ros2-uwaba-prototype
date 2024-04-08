@@ -1,0 +1,21 @@
+[0.936s] Invoking command in '/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes': PYTHONPATH=/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/prefix_override:/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build --no-deps symlink_data --force
+[1.356s] running develop
+[1.357s] /usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+[1.357s]   warnings.warn(
+[1.635s] running egg_info
+[1.635s] writing uwaba_prototype_testes.egg-info/PKG-INFO
+[1.635s] writing dependency_links to uwaba_prototype_testes.egg-info/dependency_links.txt
+[1.635s] writing entry points to uwaba_prototype_testes.egg-info/entry_points.txt
+[1.636s] writing requirements to uwaba_prototype_testes.egg-info/requires.txt
+[1.636s] writing top-level names to uwaba_prototype_testes.egg-info/top_level.txt
+[1.638s] reading manifest file 'uwaba_prototype_testes.egg-info/SOURCES.txt'
+[1.639s] writing manifest file 'uwaba_prototype_testes.egg-info/SOURCES.txt'
+[1.641s] running build_ext
+[1.641s] Creating /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba-prototype-testes.egg-link (link to .)
+[1.644s] Installing uros_std_msg_teste script to /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/uwaba_prototype_testes
+[1.644s] 
+[1.644s] Installed /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes
+[1.644s] running symlink_data
+[1.644s] symbolically linking /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/resource/uwaba_prototype_testes -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/share/ament_index/resource_index/packages
+[1.645s] symbolically linking /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/package.xml -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/share/uwaba_prototype_testes
+[1.679s] Invoked command in '/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes' returned '0': PYTHONPATH=/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/prefix_override:/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build --no-deps symlink_data --force

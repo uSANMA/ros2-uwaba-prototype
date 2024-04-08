@@ -1,0 +1,3 @@
+[console_scripts]
+uros_std_msg_teste = uwaba_prototype_testes.uros_std_msg_teste:main
+

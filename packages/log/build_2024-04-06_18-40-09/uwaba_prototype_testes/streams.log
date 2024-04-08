@@ -1,0 +1,37 @@
+[0.907s] Invoking command in '/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes': PYTHONPATH=/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/prefix_override:/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --uninstall --editable --build-directory /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build
+[1.304s] running develop
+[1.304s] /usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+[1.304s]   warnings.warn(
+[1.584s] Removing /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba-prototype-testes.egg-link (link to .)
+[1.620s] Invoked command in '/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes' returned '0': PYTHONPATH=/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/prefix_override:/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --uninstall --editable --build-directory /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build
+[1.623s] Invoking command in '/home/frantches/ros2-uwaba-prototype/packages/src/uwaba_prototype_testes': PYTHONPATH=/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/prefix_override:/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/uwaba_prototype_testes build --build-base /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build install --record /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/install.log --single-version-externally-managed install_data --force
+[1.997s] running egg_info
+[1.997s] writing ../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/PKG-INFO
+[1.998s] writing dependency_links to ../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/dependency_links.txt
+[1.998s] writing entry points to ../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/entry_points.txt
+[1.998s] writing requirements to ../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/requires.txt
+[1.999s] writing top-level names to ../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/top_level.txt
+[2.001s] reading manifest file '../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/SOURCES.txt'
+[2.002s] writing manifest file '../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info/SOURCES.txt'
+[2.002s] running build
+[2.002s] running build_py
+[2.003s] creating /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build
+[2.003s] creating /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build/lib
+[2.003s] creating /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build/lib/uwaba_prototype_testes
+[2.003s] copying uwaba_prototype_testes/__init__.py -> /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build/lib/uwaba_prototype_testes
+[2.003s] copying uwaba_prototype_testes/uros_std_msg_teste.py -> /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build/lib/uwaba_prototype_testes
+[2.004s] running install
+[2.004s] running install_lib
+[2.005s] creating /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes
+[2.005s] copying /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build/lib/uwaba_prototype_testes/uros_std_msg_teste.py -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes
+[2.005s] copying /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build/lib/uwaba_prototype_testes/__init__.py -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes
+[2.006s] byte-compiling /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes/uros_std_msg_teste.py to uros_std_msg_teste.cpython-310.pyc
+[2.007s] byte-compiling /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes/__init__.py to __init__.cpython-310.pyc
+[2.007s] running install_data
+[2.007s] copying resource/uwaba_prototype_testes -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/share/ament_index/resource_index/packages
+[2.008s] copying package.xml -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/share/uwaba_prototype_testes
+[2.008s] running install_egg_info
+[2.010s] Copying ../../build/uwaba_prototype_testes/uwaba_prototype_testes.egg-info to /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba_prototype_testes-0.0.0-py3.10.egg-info
+[2.012s] running install_scripts
+[2.040s] writing list of installed files to '/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/install.log'
+[2.070s] Invoked command in '/home/frantches/ros2-uwaba-prototype/packages/src/uwaba_prototype_testes' returned '0': PYTHONPATH=/home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/prefix_override:/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/uwaba_prototype_testes build --build-base /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/build install --record /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/install.log --single-version-externally-managed install_data --force

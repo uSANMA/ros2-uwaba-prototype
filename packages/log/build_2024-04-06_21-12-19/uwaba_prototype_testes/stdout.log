@@ -1,0 +1,17 @@
+running develop
+running egg_info
+writing uwaba_prototype_testes.egg-info/PKG-INFO
+writing dependency_links to uwaba_prototype_testes.egg-info/dependency_links.txt
+writing entry points to uwaba_prototype_testes.egg-info/entry_points.txt
+writing requirements to uwaba_prototype_testes.egg-info/requires.txt
+writing top-level names to uwaba_prototype_testes.egg-info/top_level.txt
+reading manifest file 'uwaba_prototype_testes.egg-info/SOURCES.txt'
+writing manifest file 'uwaba_prototype_testes.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/python3.10/site-packages/uwaba-prototype-testes.egg-link (link to .)
+Installing uros_std_msg_teste script to /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/lib/uwaba_prototype_testes
+
+Installed /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes
+running symlink_data
+symbolically linking /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/resource/uwaba_prototype_testes -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/share/ament_index/resource_index/packages
+symbolically linking /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_testes/package.xml -> /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_testes/share/uwaba_prototype_testes
