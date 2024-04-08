@@ -1,5 +1,30 @@
 {
     "ros.distro": "humble",
     "cmake.sourceDirectory": "/home/frantches/ros2-uwaba-prototype/packages/src/uwaba_prototype_description",
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+    "cSpell.words": [
+        "applys",
+        "astar",
+        "beamskip",
+        "costmap",
+        "decel",
+        "groot",
+        "libgazebo",
+        "linebuf",
+        "multirobot",
+        "navfn",
+        "Navfn",
+        "orduno",
+        "raytrace",
+        "rclcpp",
+        "RCUTILS",
+        "remappings",
+        "respawn",
+        "substs",
+        "turtlebot",
+        "voxel",
+        "Voxel",
+        "voxels",
+        "vtheta"
+    ]
 }
