@@ -1,0 +1,1 @@
+ros2_control will be launched at uwaba_prototype_bringup
