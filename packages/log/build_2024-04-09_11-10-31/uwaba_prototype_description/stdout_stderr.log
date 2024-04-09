@@ -1,0 +1,57 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.8 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+-- Found xacro: 2.0.8 (/opt/ros/humble/share/xacro/cmake)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/frantches/ros2-uwaba-prototype/packages/build/uwaba_prototype_description
+-- Install configuration: ""
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//launch
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//launch/display.launch.py
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/left.tracks.dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/right.tracks.dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/Cube.002.dae_history.log
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/left.tracks.dae_history.log
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/right.tracks.dae_history.log
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae/Cube.002.dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/right.tracks.dae_history.log
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/Cube.002.dae_history.log
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/right.tracks.dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/left.tracks.dae_history.log
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/Cube.002.dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//meshes/dae_old/left.tracks.dae
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//rviz
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//rviz/urdf_config.rviz
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf/uwaba_prototype-bkup.urdf
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf/uwaba_prototype.urdf
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description//urdf/uwaba_prototype_misplaced_sup.urdf
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/ament_index/resource_index/package_run_dependencies/uwaba_prototype_description
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/ament_index/resource_index/parent_prefix_path/uwaba_prototype_description
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/ament_prefix_path.sh
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/ament_prefix_path.dsv
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/path.sh
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/environment/path.dsv
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.bash
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.sh
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.zsh
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/local_setup.dsv
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/package.dsv
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/ament_index/resource_index/packages/uwaba_prototype_description
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/cmake/uwaba_prototype_descriptionConfig.cmake
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/cmake/uwaba_prototype_descriptionConfig-version.cmake
+-- Installing: /home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_description/share/uwaba_prototype_description/package.xml

@@ -1,8 +1,6 @@
-<robot name="uwaba_prototype" version="1.0"
-  xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="uwaba_prototype" version="1.0">
 
-  <xacro:include filename="uwaba_prototype_nav2_plugins.xacro" />
-
+  <!-- Some colour to our lil prototype :3 -->
   <material name="wheels-grey">
     <color rgba="0.25 0.25 0.25 1.00000" />
   </material>
@@ -214,11 +212,11 @@
     <parent link="base_footprint" />
     <child link="base_link" />
   </joint>
-  <joint name="laser_frame_base_joint" type="fixed">
+  <joint name="scan_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0110695819 -0.0000000043 0.0737789795" />
     <parent link="base_link" />
-    <child link="laser_frame" />
+    <child link="scan_link" />
   </joint>
   <joint name="supprot_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -233,7 +231,7 @@
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="0.0000002912 -0.0000000075 0.0000000112" />
       <geometry>
-        <mesh filename="package://uwaba_prototype_nav2/description/meshes/dae/right.tracks.dae"
+        <mesh filename="package://uwaba_prototype_description/meshes/dae/right.tracks.dae"
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </collision>
@@ -242,7 +240,7 @@
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="0.0000002912 -0.0000000075 0.0000000000" />
       <geometry>
-        <mesh filename="package://uwaba_prototype_nav2/description/meshes/dae/right.tracks.dae"
+        <mesh filename="package://uwaba_prototype_description/meshes/dae/right.tracks.dae"
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </visual>
@@ -540,7 +538,7 @@
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="-0.0000000266 0.0000000075 0.0000000261" />
       <geometry>
-        <mesh filename="package://uwaba_prototype_nav2/description//dae/left.tracks.dae"
+        <mesh filename="package://uwaba_prototype_description/meshes/dae/left.tracks.dae"
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </collision>
@@ -549,7 +547,7 @@
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="-0.0000000000 0.0000000000 0.0000000000" />
       <geometry>
-        <mesh filename="package://uwaba_prototype_nav2/description/meshes/dae/left.tracks.dae"
+        <mesh filename="package://uwaba_prototype_description/meshes/dae/left.tracks.dae"
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </visual>
@@ -867,8 +865,8 @@
       </geometry>
     </visual>
   </link>
-  <link name="laser_frame">
-    <collision name="laser_frame_collision">
+  <link name="scan_link">
+    <collision name="scan_collision">
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="0.0000000000 -0.0000000000 0.0000000000" />
       <geometry>
@@ -882,7 +880,7 @@
         xyz="0.0000000000 -0.0000000000 0.0000000000" />
       <mass value="0.3000000119" />
     </inertial>
-    <visual name="laser">
+    <visual name="scan">
       <material name="lidar-darkgrey" />
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="0.0000000000 -0.0000000000 0.0000000000" />
@@ -896,7 +894,7 @@
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="-0.0000000048 0.0000003599 0.0000002310" />
       <geometry>
-        <mesh filename="package://uwaba_prototype_nav2/description/meshes/dae/Cube.002.dae"
+        <mesh filename="package://uwaba_prototype_description/meshes/dae/Cube.002.dae"
           scale="0.9999999404 0.9999999404 0.9999898076" />
       </geometry>
     </collision>
@@ -905,10 +903,9 @@
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
         xyz="0.0000000000 0.0000000000 -0.0000000075" />
       <geometry>
-        <mesh filename="package://uwaba_prototype_nav2/description/meshes/dae/Cube.002.dae"
+        <mesh filename="package://uwaba_prototype_description/meshes/dae/Cube.002.dae"
           scale="0.9999999404 0.9999999404 0.9999898076" />
       </geometry>
     </visual>
   </link>
-
 </robot>

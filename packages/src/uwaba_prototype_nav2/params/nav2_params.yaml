@@ -1,6 +1,8 @@
 definitions:
   use_sim_time_set: &use_sim_time_set False
   robot_radius_set: &robot_radius_set 0.2
+  set_initial_pose_bool: &set_initial_pose_bool False
+  initial_pose_args: &initial_pose_args {x: 0.0, y: 0.0, z: 0.0, yaw: 0.0}
 
 amcl:
   ros__parameters:
@@ -21,6 +23,8 @@ amcl:
     laser_max_range: 100.0
     laser_min_range: -1.0
     laser_model_type: "likelihood_field"
+    set_initial_pose: *set_initial_pose_bool
+    initial_pose: *initial_pose_args
     max_beams: 60
     max_particles: 2000
     min_particles: 500
