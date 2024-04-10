@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "uros_std_msg_teste = uwaba_prototype_testes.uros_std_msg_teste:main"
+            "uros_std_msg_teste = uwaba_prototype_testes.uros_std_msg_teste:main",
+            "uros_cmd_vel_teste = uwaba_prototype_testes.uros_cmd_vel_teste:main"
         ],
     },
 )
