@@ -15,7 +15,12 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    Command,
+    FindExecutable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -27,7 +32,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "description_package",
-            default_value="ros2_control_demo_description",
+            default_value="uwaba_prototype_description",
             description="Description package with robot URDF/xacro files. Usually the argument \
         is not set, it enables use of a custom description.",
         )
@@ -47,21 +52,21 @@ def generate_launch_description():
         with this launch file.",
         )
     )
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            "prefix",
-            default_value='""',
-            description="Prefix of the joint names, useful for \
-        multi-robot setup. If changed than also joint names in the controllers' configuration \
-        have to be updated.",
-        )
-    )
+    # declared_arguments.append(
+    #     DeclareLaunchArgument(
+    #         "prefix",
+    #         default_value='""',
+    #         description="Prefix of the joint names, useful for \
+    #     multi-robot setup. If changed than also joint names in the controllers' configuration \
+    #     have to be updated.",
+    #     )
+    # )
 
     # Initialize Arguments
     description_package = LaunchConfiguration("description_package")
     description_file = LaunchConfiguration("description_file")
     gui = LaunchConfiguration("gui")
-    prefix = LaunchConfiguration("prefix")
+    # prefix = LaunchConfiguration("prefix")
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -69,17 +74,21 @@ def generate_launch_description():
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             PathJoinSubstitution(
-                [FindPackageShare("ros2_control_demo_example_2"), "urdf", description_file]
+                [
+                    FindPackageShare("uwaba_prototype_diffbot"),
+                    "urdf",
+                    description_file,
+                ]
             ),
             " ",
             "prefix:=",
-            prefix,
+            # prefix,
         ]
     )
     robot_description = {"robot_description": robot_description_content}
 
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare(description_package), "diffbot/rviz", "diffbot_view.rviz"]
+        [FindPackageShare(description_package), "rviz", "urdf_config.rviz"]
     )
 
     joint_state_publisher_node = Node(

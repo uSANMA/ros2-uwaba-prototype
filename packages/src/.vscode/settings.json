@@ -26,5 +26,8 @@
         "Voxel",
         "voxels",
         "vtheta"
-    ]
+    ],
+    "files.associations": {
+        "memory": "cpp"
+    }
 }
