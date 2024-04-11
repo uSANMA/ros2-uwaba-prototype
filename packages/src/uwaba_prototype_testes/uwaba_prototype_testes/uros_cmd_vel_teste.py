@@ -5,38 +5,37 @@ from geometry_msgs.msg import TwistStamped
 from sensor_msgs.msg import JointState
 
 
-class UrosTestNode(Node):
+class UrosCmdVelTeste(Node):
     def __init__(self):
-        super().__init__("Uros_Test_Node")
-        # Set publish frequency [Hz]
-        self.timer_freq_ = 1
-        # Configure publishers and subscribers
+        super().__init__("uros_cmd_vel_test_node")
+        self.declare_parameter("set_x", 0.0)
+        self.declare_parameter("set_az", 0.0)
+        self.declare_parameter("set_frame_id", "no_id")
+        self.declare_parameter("set_freq", 1)
+        self.x_value_ = self.get_parameter("set_x").value
+        self.az_value_ = self.get_parameter("set_az").value
+        self.frame_id_value_ = self.get_parameter("set_frame_id").value
+        self.timer_freq_ = self.get_parameter("set_freq").value
         self.data_publisher_ = self.create_publisher(TwistStamped, "cmd_vel", 10)
-        # self.data_publisher2_ = self.create_publisher(JointState, "Encoder_Msgs", 10)
-        # self.data_subscriber_ = self.create_subscription(
-        #     JointState, "/motor/encoder", self.subscription_encoder, 10
-        # )
         self.timer_ = self.create_timer(1.0 / self.timer_freq_, self.publish_cmd)
 
     def publish_cmd(self):
-        cmd_msg = self.set_cmd_vel("right_wheel", x=5.66, az=1.57)
+        cmd_msg = self.set_cmd_vel(
+            self.frame_id_value_, x=self.x_value_, az=self.az_value_
+        )
         self.data_publisher_.publish(cmd_msg)
         self.get_logger().warn(
-            "\nSending to linear x:\t"
-            + str(cmd_msg.twist.linear.x)
-            + "\nand to angular z:\t"
-            + str(cmd_msg.twist.angular.z)
-            + "\nat:\t\t\t"
-            + str(cmd_msg.header.frame_id)
-            + "\nstamp sec:\t\t"
+            "\n- Stamp sec:\t\t"
             + str(cmd_msg.header.stamp.sec)
-            + "\nstamp nanosec:\t\t"
+            + "\n- Stamp nanosec:\t"
             + str(cmd_msg.header.stamp.nanosec)
+            + "\n- Sending to linear x:\t"
+            + str(cmd_msg.twist.linear.x)
+            + "\n- Sending to angular z:\t"
+            + str(cmd_msg.twist.angular.z)
+            + "\n- Frame ID:\t\t"
+            + str(cmd_msg.header.frame_id)
         )
-
-    # def subscription_encoder(self, msg: JointState):
-    #     self.data_publisher2_.publish(msg)
-    #     self.get_logger().warn("Dado recebido: " + str(msg))
 
     def set_cmd_vel(
         self,
@@ -62,7 +61,7 @@ class UrosTestNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = UrosTestNode()
+    node = UrosCmdVelTeste()
     rclpy.spin(node)
     rclpy.shutdown()
 
