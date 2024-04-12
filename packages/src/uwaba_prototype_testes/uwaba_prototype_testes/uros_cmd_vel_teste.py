@@ -15,7 +15,7 @@ class UrosCmdVelTeste(Node):
         self.az_value_ = self.get_parameter("set_az").value
         self.frame_id_value_ = self.get_parameter("set_frame_id").value
         self.timer_freq_ = self.get_parameter("set_freq").value
-        self.data_publisher_ = self.create_publisher(TwistStamped, "cmd_vel", 10)
+        self.data_publisher_ = self.create_publisher(TwistStamped, "diffbot_base_controller/cmd_vel", 10)
         self.timer_ = self.create_timer(1.0 / self.timer_freq_, self.publish_cmd)
 
     def publish_cmd(self):

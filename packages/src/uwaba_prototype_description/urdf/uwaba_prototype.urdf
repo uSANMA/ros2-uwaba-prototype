@@ -1,7 +1,6 @@
-<robot name="uwaba_prototype" version="1.0"
+<?xml version="1.0"?>
+<robot name="uwaba_prototype_diffbot" version="1.0"
   xmlns:xacro="http://www.ros.org/wiki/xacro">
-
-  <!-- <xacro:include filename="uwaba_prototype_nav2_plugins.xacro" /> -->
 
   <material name="wheels-grey">
     <color rgba="0.25 0.25 0.25 1.00000" />
@@ -35,7 +34,10 @@
     <parent link="base_link" />
     <child link="Left_wheel_sprocket_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
+    <dynamics damping="0.2" />
+    <limit effort="100" velocity="1.0" />
   </joint>
+
   <joint name="Left_suspension.001_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -44,6 +46,7 @@
     <child link="Left_small_wheels_frame.001_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Left_suspension.002_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -52,6 +55,7 @@
     <child link="Left_small_wheels_frame.002_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Left_suspension.003_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -60,6 +64,7 @@
     <child link="Left_small_wheels_frame.003_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Left_suspension.004_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -68,6 +73,7 @@
     <child link="Left_small_wheels_frame.004_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Left_suspension_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -76,48 +82,56 @@
     <child link="Left_small_wheels_frame_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Left_tracks_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0000073090 0.0762520012 -0.0125610121" />
     <parent link="base_link" />
     <child link="Left_bumped_treads_link" />
   </joint>
+
   <joint name="Left_wheel.001_suspension_joint" type="fixed">
     <origin rpy="-0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0191554390 0.0209509283 -0.0199896954" />
     <parent link="Left_small_wheels_frame.004_link" />
     <child link="Left_wheel.001_link" />
   </joint>
+
   <joint name="Left_wheel.002_suspension_joint" type="fixed">
     <origin rpy="-0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0184964389 0.0209509470 -0.0199897066" />
     <parent link="Left_small_wheels_frame.003_link" />
     <child link="Left_wheel.002_link" />
   </joint>
+
   <joint name="Left_wheel.003_suspension_joint" type="fixed">
     <origin rpy="-0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0197104495 0.0209509693 -0.0199897159" />
     <parent link="Left_small_wheels_frame.002_link" />
     <child link="Left_wheel.003_link" />
   </joint>
+
   <joint name="Left_wheel.004_suspension_joint" type="fixed">
     <origin rpy="-0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0179914646 0.0209509209 -0.0199899562" />
     <parent link="Left_small_wheels_frame.001_link" />
     <child link="Left_wheel.004_link" />
   </joint>
+
   <joint name="Left_wheel.005_suspension_joint" type="fixed">
     <origin rpy="-0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0192444250 0.0209509395 -0.0199897159" />
     <parent link="Left_small_wheels_frame_link" />
     <child link="Left_wheel.005_link" />
   </joint>
+
   <joint name="Left_wheel.006_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="0.1065519945 0.0762500119 0.0002470016" />
     <parent link="base_link" />
     <child link="Left_wheel.006_link" />
   </joint>
+
   <joint name="Right_sprocket_base_joint" type="continuous">
     <limit lower="0" upper="0" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -125,7 +139,10 @@
     <parent link="base_link" />
     <child link="Right_wheel_sprocket_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
+    <dynamics damping="0.2" />
+    <limit effort="100" velocity="1.0" />
   </joint>
+
   <joint name="Right_suspension.001_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -134,6 +151,7 @@
     <child link="Right_small_wheels_frame.001_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Right_suspension.002_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -142,6 +160,7 @@
     <child link="Right_small_wheels_frame.002_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Right_suspension.003_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -150,6 +169,7 @@
     <child link="Right_small_wheels_frame.003_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Right_suspension.004_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -158,6 +178,7 @@
     <child link="Right_small_wheels_frame.004_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Right_suspension_base_joint" type="revolute">
     <limit lower="-0.1745329946" upper="0.1745329946" effort="0.0000000000" velocity="0.0000000000" />
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -166,60 +187,70 @@
     <child link="Right_small_wheels_frame_link" />
     <axis xyz="0.0000000000 1.0000000000 0.0000000000" />
   </joint>
+
   <joint name="Right_tracks_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="0.0000440089 -0.0765780109 -0.0125610270" />
     <parent link="base_link" />
     <child link="Right_bumped_treads_link" />
   </joint>
+
   <joint name="Right_wheel.001_suspension_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0191554353 -0.0209510326 -0.0199897029" />
     <parent link="Right_small_wheels_frame.004_link" />
     <child link="Right_wheel.001_link" />
   </joint>
+
   <joint name="Right_wheel.002_suspension_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0184964174 -0.0209510289 -0.0199897103" />
     <parent link="Right_small_wheels_frame.003_link" />
     <child link="Right_wheel.002_link" />
   </joint>
+
   <joint name="Right_wheel.003_suspension_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0197104261 -0.0209509619 -0.0199897196" />
     <parent link="Right_small_wheels_frame.002_link" />
     <child link="Right_wheel.003_link" />
   </joint>
+
   <joint name="Right_wheel.004_suspension_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0179914236 -0.0209510438 -0.0199897178" />
     <parent link="Right_small_wheels_frame.001_link" />
     <child link="Right_wheel.004_link" />
   </joint>
+
   <joint name="Right_wheel.005_suspension_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0192444548 -0.0209510252 -0.0199896898" />
     <parent link="Right_small_wheels_frame_link" />
     <child link="Right_wheel.005_link" />
   </joint>
+
   <joint name="Right_wheel.006_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="0.1065519945 -0.0762500066 0.0002470054" />
     <parent link="base_link" />
     <child link="Right_wheel.006_link" />
   </joint>
+
   <joint name="base_footprint_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="0.0000000177 0.0000000048 0.0524450019" />
     <parent link="base_footprint" />
     <child link="base_link" />
   </joint>
+
   <joint name="laser_frame_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0110695819 -0.0000000043 0.0737789795" />
     <parent link="base_link" />
     <child link="laser_frame" />
   </joint>
+
   <joint name="supprot_base_joint" type="fixed">
     <origin rpy="0.0000000000 0.0000000000 0.0000000000"
       xyz="-0.0000000130 -0.0000003647 0.0193747655" />
@@ -237,6 +268,7 @@
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </collision>
+
     <visual name="Left_bumped_treads">
       <material name="threads-black" />
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -246,7 +278,9 @@
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_small_wheels_frame.001_link">
     <collision name="Left_small_wheels_frame.001_collision">
       <origin rpy="0.0000000000 -0.7853982406 0.0000000000"
@@ -255,6 +289,7 @@
         <box size="0.0362100005 0.0048000002 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -262,6 +297,7 @@
         xyz="-0.0000000075 -0.0000000037 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Left_small_wheels_frame.001">
       <material name="suspension-black" />
       <origin rpy="0.0000000000 -0.7853982406 0.0000000000"
@@ -270,7 +306,9 @@
         <box size="0.0362099968 0.0048000002 0.0084999995" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_small_wheels_frame.002_link">
     <collision name="Left_small_wheels_frame.002_collision">
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -279,6 +317,7 @@
         <box size="0.0362099968 0.0048000016 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -286,6 +325,7 @@
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Left_small_wheels_frame.002">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -294,7 +334,9 @@
         <box size="0.0362099968 0.0048000021 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_small_wheels_frame.003_link">
     <collision name="Left_small_wheels_frame.003_collision">
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -303,6 +345,7 @@
         <box size="0.0362099968 0.0047999993 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -310,6 +353,7 @@
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Left_small_wheels_frame.003">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -318,7 +362,9 @@
         <box size="0.0362099931 0.0047999993 0.0084999995" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_small_wheels_frame.004_link">
     <collision name="Left_small_wheels_frame.004_collision">
       <origin rpy="-0.0000000000 -0.7853982406 -0.0000000000"
@@ -327,6 +373,7 @@
         <box size="0.0362100005 0.0048000002 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="0.0000000000" izz="0.0000029781" />
@@ -334,6 +381,7 @@
         xyz="-0.0000000075 0.0000000075 0.0000000037" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Left_small_wheels_frame.004">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 -0.0000000000"
@@ -342,7 +390,9 @@
         <box size="0.0362100005 0.0048000002 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_small_wheels_frame_link">
     <collision name="Left_small_wheels_frame_collision">
       <origin rpy="0.0000000000 -0.7853982406 0.0000000000"
@@ -351,6 +401,7 @@
         <box size="0.0362100005 0.0048000012 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -358,6 +409,7 @@
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Left_small_wheels_frame">
       <material name="suspension-black" />
       <origin rpy="0.0000000000 -0.7853982406 0.0000000000"
@@ -366,7 +418,9 @@
         <box size="0.0362100005 0.0048000012 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel.001_link">
     <collision name="Left_wheel.001_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -375,6 +429,7 @@
         <cylinder radius="0.0149999997" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="0.0000000000" iyy="0.0000112500"
         iyz="-0.0000000000" izz="0.0000096327" />
@@ -382,6 +437,7 @@
         xyz="0.0000000075 0.0000000000 -0.0000000056" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel.001">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -390,7 +446,9 @@
         <cylinder radius="0.0149999978" length="0.0219299998" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel.002_link">
     <collision name="Left_wheel.002_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -399,6 +457,7 @@
         <cylinder radius="0.0149999969" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="0.0000000000" iyy="0.0000112500"
         iyz="-0.0000000000" izz="0.0000096327" />
@@ -406,6 +465,7 @@
         xyz="0.0000000000 0.0000000149 0.0000000019" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel.002">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -414,7 +474,9 @@
         <cylinder radius="0.0149999950" length="0.0219299998" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel.003_link">
     <collision name="Left_wheel.003_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -423,6 +485,7 @@
         <cylinder radius="0.0149999987" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="-0.0000000000" izz="0.0000096327" />
@@ -430,6 +493,7 @@
         xyz="0.0000000000 -0.0000000075 0.0000000019" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel.003">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -438,7 +502,9 @@
         <cylinder radius="0.0149999987" length="0.0219300017" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel.004_link">
     <collision name="Left_wheel.004_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -447,6 +513,7 @@
         <cylinder radius="0.0150000006" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="-0.0000000000" izz="0.0000096327" />
@@ -454,6 +521,7 @@
         xyz="-0.0000000037 0.0000000075 0.0000000019" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel.004">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -462,7 +530,9 @@
         <cylinder radius="0.0149999987" length="0.0219299998" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel.005_link">
     <collision name="Left_wheel.005_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -471,6 +541,7 @@
         <cylinder radius="0.0150000015" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="-0.0000000000" izz="0.0000096327" />
@@ -478,6 +549,7 @@
         xyz="0.0000000000 0.0000000075 0.0000000019" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel.005">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -486,7 +558,9 @@
         <cylinder radius="0.0150000025" length="0.0219300017" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel.006_link">
     <collision name="Left_wheel.006_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -495,6 +569,7 @@
         <cylinder radius="0.0161000043" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000104880" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0000129605"
         iyz="-0.0000000000" izz="0.0000104880" />
@@ -502,6 +577,7 @@
         xyz="-0.0000000075 0.0000000000 -0.0000000037" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel.006">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -510,7 +586,9 @@
         <cylinder radius="0.0161000006" length="0.0219299980" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Left_wheel_sprocket_link">
     <collision name="Left_wheel_sprocket_collision">
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -519,6 +597,7 @@
         <cylinder radius="0.0161000025" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000104880" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0000129605"
         iyz="-0.0000000000" izz="0.0000104880" />
@@ -526,6 +605,7 @@
         xyz="0.0000000149 0.0000000000 -0.0000000075" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Left_wheel_sprocket">
       <material name="wheels-grey" />
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
@@ -534,7 +614,9 @@
         <cylinder radius="0.0161000006" length="0.0219299980" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_bumped_treads_link">
     <collision name="Right_bumped_treads_collision">
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -544,6 +626,7 @@
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </collision>
+
     <visual name="Right_bumped_treads">
       <material name="threads-black" />
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -553,7 +636,9 @@
           scale="1.0000000000 1.0000000000 1.0000000000" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_small_wheels_frame.001_link">
     <collision name="Right_small_wheels_frame.001_collision">
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -562,6 +647,7 @@
         <box size="0.0362099968 0.0048000072 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -569,6 +655,7 @@
         xyz="0.0000000000 -0.0000000037 0.0000000037" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Right_small_wheels_frame.001">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -577,7 +664,9 @@
         <box size="0.0362099968 0.0048000072 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_small_wheels_frame.002_link">
     <collision name="Right_small_wheels_frame.002_collision">
       <origin rpy="0.0000000000 -0.7853982406 0.0000000000"
@@ -586,6 +675,7 @@
         <box size="0.0362100005 0.0048000016 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -593,6 +683,7 @@
         xyz="0.0000000019 -0.0000000112 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Right_small_wheels_frame.002">
       <material name="suspension-black" />
       <origin rpy="0.0000000000 -0.7853982406 0.0000000000"
@@ -601,7 +692,9 @@
         <box size="0.0362100005 0.0048000021 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_small_wheels_frame.003_link">
     <collision name="Right_small_wheels_frame.003_collision">
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -610,6 +703,7 @@
         <box size="0.0362100005 0.0047999998 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -617,6 +711,7 @@
         xyz="0.0000000009 0.0000000037 -0.0000000037" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Right_small_wheels_frame.003">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -625,7 +720,9 @@
         <box size="0.0362100005 0.0047999998 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_small_wheels_frame.004_link">
     <collision name="Right_small_wheels_frame.004_collision">
       <origin rpy="-0.0000000000 -0.7853982406 -0.0000000000"
@@ -634,6 +731,7 @@
         <box size="0.0362100005 0.0048000002 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="0.0000000000" izz="0.0000029781" />
@@ -641,6 +739,7 @@
         xyz="-0.0000000037 0.0000000000 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Right_small_wheels_frame.004">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 -0.0000000000"
@@ -649,7 +748,9 @@
         <box size="0.0362100005 0.0048000002 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_small_wheels_frame_link">
     <collision name="Right_small_wheels_frame_collision">
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -658,6 +759,7 @@
         <box size="0.0362100005 0.0048000007 0.0085000005" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000029781" ixy="-0.0000000000" ixz="-0.0000025811" iyy="0.0000057642"
         iyz="-0.0000000000" izz="0.0000029781" />
@@ -665,6 +767,7 @@
         xyz="-0.0000000075 0.0000000000 0.0000000000" />
       <mass value="0.0500000007" />
     </inertial>
+
     <visual name="Right_small_wheels_frame">
       <material name="suspension-black" />
       <origin rpy="-0.0000000000 -0.7853982406 0.0000000000"
@@ -673,7 +776,9 @@
         <box size="0.0362100005 0.0048000007 0.0085000005" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel.001_link">
     <collision name="Right_wheel.001_collision">
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -682,6 +787,7 @@
         <cylinder radius="0.0149999997" length="0.0219299980" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="0.0000000000" izz="0.0000096327" />
@@ -689,6 +795,7 @@
         xyz="0.0000000000 0.0000000000 -0.0000000019" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel.001">
       <material name="wheels-grey" />
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -697,7 +804,9 @@
         <cylinder radius="0.0149999997" length="0.0219299980" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel.002_link">
     <collision name="Right_wheel.002_collision">
       <origin rpy="-1.5707960129 0.0000000000 0.0000000000"
@@ -706,6 +815,7 @@
         <cylinder radius="0.0150000006" length="0.0219299980" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="0.0000000000" izz="0.0000096327" />
@@ -713,6 +823,7 @@
         xyz="0.0000000037 0.0000000000 -0.0000000019" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel.002">
       <material name="wheels-grey" />
       <origin rpy="-1.5707960129 0.0000000000 0.0000000000"
@@ -721,7 +832,9 @@
         <cylinder radius="0.0150000006" length="0.0219299980" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel.003_link">
     <collision name="Right_wheel.003_collision">
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -730,6 +843,7 @@
         <cylinder radius="0.0149999997" length="0.0219299998" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="0.0000000000" izz="0.0000096327" />
@@ -737,6 +851,7 @@
         xyz="-0.0000000000 0.0000000000 0.0000000000" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel.003">
       <material name="wheels-grey" />
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -745,7 +860,9 @@
         <cylinder radius="0.0149999997" length="0.0219299998" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel.004_link">
     <collision name="Right_wheel.004_collision">
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -754,6 +871,7 @@
         <cylinder radius="0.0150000006" length="0.0219299980" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0000112500"
         iyz="0.0000000000" izz="0.0000096327" />
@@ -761,6 +879,7 @@
         xyz="0.0000000000 0.0000000149 0.0000000000" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel.004">
       <material name="wheels-grey" />
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -769,7 +888,9 @@
         <cylinder radius="0.0150000006" length="0.0219299980" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel.005_link">
     <collision name="Right_wheel.005_collision">
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -778,6 +899,7 @@
         <cylinder radius="0.0150000006" length="0.0219299980" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000096327" ixy="-0.0000000000" ixz="-0.0000000000" iyy="0.0000112500"
         iyz="0.0000000000" izz="0.0000096327" />
@@ -785,6 +907,7 @@
         xyz="-0.0000000149 0.0000000075 0.0000000000" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel.005">
       <material name="wheels-grey" />
       <origin rpy="-1.5707960129 -0.0000000000 0.0000000000"
@@ -793,7 +916,9 @@
         <cylinder radius="0.0150000006" length="0.0219299980" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel.006_link">
     <collision name="Right_wheel.006_collision">
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
@@ -802,6 +927,7 @@
         <cylinder radius="0.0161000006" length="0.0219300017" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000104880" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0000129605"
         iyz="0.0000000000" izz="0.0000104880" />
@@ -809,6 +935,7 @@
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel.006">
       <material name="wheels-grey" />
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
@@ -817,7 +944,9 @@
         <cylinder radius="0.0161000006" length="0.0219300017" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="Right_wheel_sprocket_link">
     <collision name="Right_wheel_sprocket_collision">
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
@@ -826,6 +955,7 @@
         <cylinder radius="0.0161000006" length="0.0219300017" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000104880" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0000129605"
         iyz="0.0000000000" izz="0.0000104880" />
@@ -833,6 +963,7 @@
         xyz="0.0000000075 0.0000000075 0.0000000000" />
       <mass value="0.1000000015" />
     </inertial>
+
     <visual name="Right_wheel_sprocket">
       <material name="wheels-grey" />
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
@@ -841,8 +972,11 @@
         <cylinder radius="0.0160999987" length="0.0219299998" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="base_footprint" />
+
   <link name="base_link">
     <collision name="base_collision">
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -851,6 +985,7 @@
         <box size="0.2480000407 0.1058000177 0.0387500003" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0013753140" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0068256045"
         iyz="0.0000000000" izz="0.0078755800" />
@@ -858,6 +993,7 @@
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <mass value="1.2999999523" />
     </inertial>
+
     <visual name="base">
       <material name="base-blue" />
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -866,7 +1002,9 @@
         <box size="0.2480000407 0.1058000177 0.0387500003" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="laser_frame">
     <collision name="laser_frame_collision">
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -875,6 +1013,7 @@
         <cylinder radius="0.0341599993" length="0.0183099993" />
       </geometry>
     </collision>
+
     <inertial>
       <inertia ixx="0.0000958993" ixy="0.0000000000" ixz="0.0000000000" iyy="0.0000958993"
         iyz="0.0000000000" izz="0.0001750358" />
@@ -882,6 +1021,7 @@
         xyz="0.0000000000 -0.0000000000 0.0000000000" />
       <mass value="0.3000000119" />
     </inertial>
+
     <visual name="laser">
       <material name="lidar-darkgrey" />
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -890,7 +1030,9 @@
         <cylinder radius="0.0341599993" length="0.0183099993" />
       </geometry>
     </visual>
+
   </link>
+
   <link name="support_link">
     <collision name="support_collision">
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -900,6 +1042,7 @@
           scale="0.9999999404 0.9999999404 0.9999898076" />
       </geometry>
     </collision>
+
     <visual name="support">
       <material name="support-babyblue" />
       <origin rpy="0.0000000000 0.0000000000 0.0000000000"
@@ -909,6 +1052,7 @@
           scale="0.9999999404 0.9999999404 0.9999898076" />
       </geometry>
     </visual>
+
   </link>
 
 </robot>
