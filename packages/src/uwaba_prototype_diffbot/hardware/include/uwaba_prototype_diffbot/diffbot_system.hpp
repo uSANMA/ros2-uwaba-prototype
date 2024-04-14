@@ -29,9 +29,9 @@
 #include "rclcpp/time.hpp"
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
-#include "visibility_control.h"
+#include "uwaba_prototype_diffbot/visibility_control.h"
 
-namespace uwaba_prototype_diffbot {
+namespace uwaba_prototype_diffbot{
 class DiffBotSystemHardware : public hardware_interface::SystemInterface {
    public:
     RCLCPP_SHARED_PTR_DEFINITIONS(DiffBotSystemHardware);

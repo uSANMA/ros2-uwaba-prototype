@@ -1,6 +1,6 @@
-<library path="uwaba_prototype_bringup">
-    <class name="uwaba_prototype_bringup/DiffBotSystemHardware"
-        type="uwaba_prototype_bringup::DiffBotSystemHardware"
+<library path="uwaba_prototype_diffbot">
+    <class name="uwaba_prototype_diffbot/DiffBotSystemHardware"
+        type="uwaba_prototype_diffbot::DiffBotSystemHardware"
         base_class_type="hardware_interface::SystemInterface">
         <description>
             The ros2_control DiffBot example using a system hardware interface-type. It uses

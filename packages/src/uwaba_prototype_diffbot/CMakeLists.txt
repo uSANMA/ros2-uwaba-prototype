@@ -25,11 +25,13 @@ add_library(
   SHARED
   hardware/diffbot_system.cpp
 )
+
 target_compile_features(uwaba_prototype_diffbot PUBLIC cxx_std_17)
 target_include_directories(uwaba_prototype_diffbot PUBLIC
 $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/hardware/include>
 $<INSTALL_INTERFACE:include/uwaba_prototype_diffbot>
 )
+
 ament_target_dependencies(
   uwaba_prototype_diffbot PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
