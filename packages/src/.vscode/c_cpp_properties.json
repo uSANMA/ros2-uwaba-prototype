@@ -7,7 +7,9 @@
       },
       "includePath": [
         "/opt/ros/humble/include/**",
-        "/usr/include/**"
+        "/usr/include/**",
+        "/home/frantches/ros2-uwaba-prototype/packages/install/uwaba_prototype_diffbot/include/**",
+        "/home/frantches/ros2-uwaba-prototype/packages/src/uwaba_prototype_diffbot/hardware/include/**"
       ],
       "name": "ROS",
       "intelliSenseMode": "gcc-x64",

@@ -11,6 +11,7 @@
   <xacro:include
     filename="$(find uwaba_prototype_diffbot)/ros2_control/diffbot.ros2_control.xacro" />
 
+  <xacro:diffbot prefix="$(arg prefix)" />
 
   <xacro:diffbot_ros2_control
     name="DiffBot" prefix="$(arg prefix)" use_mock_hardware="$(arg use_mock_hardware)" />

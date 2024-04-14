@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "include/uwaba_prototype_diffbot/diffbot_system.hpp"
+#include "uwaba_prototype_diffbot/diffbot_system.hpp"
 
 #include <chrono>
 #include <cmath>
