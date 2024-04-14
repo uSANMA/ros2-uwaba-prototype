@@ -65,6 +65,7 @@ def generate_launch_description():
             "diffbot_controllers.yaml",
         ]
     )
+
     rviz_config_file = PathJoinSubstitution(
         [
             FindPackageShare("uwaba_prototype_description"),
