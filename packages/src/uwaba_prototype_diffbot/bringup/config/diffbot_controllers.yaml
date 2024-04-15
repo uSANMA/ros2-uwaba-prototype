@@ -14,7 +14,7 @@ diffbot_base_controller:
     right_wheel_names: ["Right_sprocket_base_joint"]
 
     wheel_separation: 0.16
-    # wheels_per_side: 1
+    wheels_per_side: 1
     wheel_radius: 0.0161
 
     wheel_separation_multiplier: 1.0
