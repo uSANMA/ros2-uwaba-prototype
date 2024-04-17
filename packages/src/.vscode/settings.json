@@ -110,13 +110,15 @@
         "/opt/ros/humble/local/lib/python3.10/dist-packages",
         "ros2-uwaba-prototype/packages/build/uwaba_prototype_description",
         "ros2-uwaba-prototype/packages/build/uwaba_prototype_bringup",
-        "ros2-uwaba-prototype/packages/build/uwaba_prototype_testes"
+        "ros2-uwaba-prototype/packages/build/uwaba_prototype_testes",
+        "/home/frantches/Workspaces/ros2_ws/packages/build/**"
     ],
     "python.analysis.extraPaths": [
         "/opt/ros/humble/lib/python3.10/site-packages",
         "/opt/ros/humble/local/lib/python3.10/dist-packages",
         "ros2-uwaba-prototype/packages/build/uwaba_prototype_description",
         "ros2-uwaba-prototype/packages/build/uwaba_prototype_bringup",
-        "ros2-uwaba-prototype/packages/build/uwaba_prototype_testes"
+        "ros2-uwaba-prototype/packages/build/uwaba_prototype_testes",
+        "/home/frantches/Workspaces/ros2_ws/packages/build/**"
     ]
 }

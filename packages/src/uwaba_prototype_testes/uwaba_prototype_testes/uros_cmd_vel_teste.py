@@ -7,10 +7,10 @@ from geometry_msgs.msg import TwistStamped
 class UrosCmdVelTeste(Node):
     def __init__(self):
         super().__init__("uros_cmd_vel_test_node")
-        self.declare_parameter("set_x", 0.0)
-        self.declare_parameter("set_az", 0.0)
-        self.declare_parameter("set_frame_id", "no_id")
-        self.declare_parameter("set_freq", 1)
+        self.declare_parameter("set_x", 0.1)
+        self.declare_parameter("set_az", 0.2)
+        self.declare_parameter("set_frame_id", "uwaba_prototype")
+        self.declare_parameter("set_freq", 30)
         self.x_value_ = self.get_parameter("set_x").value
         self.az_value_ = self.get_parameter("set_az").value
         self.frame_id_value_ = self.get_parameter("set_frame_id").value

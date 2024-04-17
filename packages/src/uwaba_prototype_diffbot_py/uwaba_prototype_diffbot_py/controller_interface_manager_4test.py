@@ -11,6 +11,7 @@ class LifecycleControllerNodeManager(Node):
     def __init__(self):
         super().__init__("lifecycle_controller_manager")
         self.declare_parameter("managed_node_name", rclpy.Parameter.Type.STRING)
+        
 
     def get_state(self):
         request_state = GetState.Request()

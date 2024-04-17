@@ -1,0 +1,10 @@
+# Goal 
+uint8 request_id
+string request_label
+---
+# Result
+int8 status_id
+string action_msg
+---
+# Feedback
+uint8 process_id
