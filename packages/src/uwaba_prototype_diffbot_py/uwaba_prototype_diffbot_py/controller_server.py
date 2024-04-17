@@ -38,10 +38,10 @@ class ControllerServer(Node):
             execute_callback=self.execute_callback,
             callback_group=ReentrantCallbackGroup(),
         )
-        self.get_logger().info("Controller lifecycle manager has started.")
+        self.get_logger().info("Controller server has started.")
 
         # Lifecycle manager client params and init
-        self.declare_parameter("managed_node_name", rclpy.Parameter.Type.STRING)
+        self.declare_parameter("managed_node_name", "rclpy.Parameter.Type.STRING")
         node_name = self.get_parameter("managed_node_name").value
         service_change_state_name = "/" + node_name + "/change_state"
         service_get_state_name = "/" + node_name + "/get_state"
@@ -49,7 +49,7 @@ class ControllerServer(Node):
             ChangeState, service_change_state_name
         )
         self.client_get_state = self.create_client(GetState, service_get_state_name)
-        self.get_logger().info("Controller server has started.")
+        self.get_logger().info("Controller lifecycle manager has started.")
 
     def goal_callback(self, goal_request: ControlActions.Goal):
         self.get_logger().info("Received a goal.")
