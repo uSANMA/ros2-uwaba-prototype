@@ -36,6 +36,7 @@ class ControllerServer(LifecycleNode):
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
+        self.flag_lock_ = threading.RLock()
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.linear_ = TwistStamped().twist.linear
         self.angular_ = TwistStamped().twist.angular
@@ -171,7 +172,7 @@ class ControllerServer(LifecycleNode):
         request = goal_handle.request.request
         self.get_logger().info(f"Request: {request}")
         child_frame_id = goal_handle.request.child_frame_id
-        self.get_logger().info(f"Request: {child_frame_id}")
+        self.get_logger().info(f"Child_Frame_Id: {child_frame_id}")
 
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
@@ -193,7 +194,7 @@ class ControllerServer(LifecycleNode):
                 result.result_msg = "Goal was cancel requested"
                 return result
 
-            if request == "transform":
+            if request == "transform" and self.got_package_:
                 self.got_package_ = False
                 twist_msg.header.stamp = now.to_msg()
                 twist_msg.twist.linear = self.linear_
@@ -221,10 +222,9 @@ class ControllerServer(LifecycleNode):
                 time.sleep(1.0)
                 feedback.process = "Goal is empty."
                 goal_handle.publish_feedback(feedback)
-            else:
-                time.sleep(1.0)
-                feedback.process = "Unknown goal."
-                goal_handle.publish_feedback(feedback)
+            # else:
+            #     feedback.process = "Unknown goal or package not yet ready"
+            #     goal_handle.publish_feedback(feedback)
 
         # Implement code for executing the robot movement (joint state publisher with tfs)
         # Don't forget about odometry and so on and so forth (actually can't since the robot

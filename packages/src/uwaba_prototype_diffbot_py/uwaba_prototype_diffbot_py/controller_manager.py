@@ -11,9 +11,9 @@ from rclpy.action.client import ClientGoalHandle, GoalStatus
 from uwaba_prototype_interfaces.action import ControlActions
 
 
-class ControllerServerManager(Node):
+class ControllerManager(Node):
     def __init__(self):
-        super().__init__("controller_server_manager")
+        super().__init__("controller_manager")
         self.declare_parameter("goal_request", "empty")
         self.goal_request_ = self.get_parameter("goal_request").value
         self.declare_parameter("child_frame_id", "empty")
@@ -89,8 +89,9 @@ class ControllerServerManager(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ControllerServerManager()
+    node = ControllerManager()
     node.initialization_sequence()
+    rclpy.spin(node)
     rclpy.shutdown()
 
 
