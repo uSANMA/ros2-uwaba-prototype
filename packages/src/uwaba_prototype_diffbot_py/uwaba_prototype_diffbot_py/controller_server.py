@@ -2,177 +2,264 @@
 import rclpy
 import time
 import threading
+import tf_transformations
 
-from rclpy.node import Node
+from rclpy.lifecycle import LifecycleNode
+from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 
-from lifecycle_msgs.srv import ChangeState, GetState
-from lifecycle_msgs.msg import Transition
-
 from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
 
 from geometry_msgs.msg import TwistStamped
+from sensor_msgs.msg import JointState
+from nav_msgs.msg import Odometry
+
+###################################################################################################
+#                                                                                                 #
+# REMINDER FOR FINAL IMPLEMENTATION: Please remove the get_logger() to avoid delaying the process #
+#                                                                                                 #
+###################################################################################################
 
 
-class ControllerServer(Node):
+class ControllerServer(LifecycleNode):
     def __init__(self):
-        super().__init__("controller_server_node")
+        self.lf_node_name_ = "controller_server_node"
+        super().__init__(f"{self.lf_node_name_}")
         self.qos_profile_ = QoSProfile(depth=10)
-        # Action Server Params and init
+        self.got_package_ = False
+        self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
-        self.goal_queue_ = []
-        self.count_until_server_ = ActionServer(
+        self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
+        self.linear_ = TwistStamped().twist.linear
+        self.angular_ = TwistStamped().twist.angular
+        self.covariance_fill_ = [0.0 for _ in range(36)]
+        # self.goal_queue_ = []
+
+    def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
+        ###############################################################
+        ######## DON'T FORGET TO REMOVE NODE NAMES FROM TOPICS ########
+        ###############################################################
+        self.control_server_ = ActionServer(
             self,
             ControlActions,
-            "uWABA/Control_Server",
+            "uWABA_prototype/Control_Server",
             goal_callback=self.goal_callback,
-            handle_accepted_callback=self.handle_accepted_callback,
+            # handle_accepted_callback=self.handle_accepted_callback,          # Won't implement goal queue for now
             cancel_callback=self.cancel_callback,
             execute_callback=self.execute_callback,
             callback_group=ReentrantCallbackGroup(),
         )
-        self.get_logger().info("Controller server has started.")
-
-        # Lifecycle manager client params and init
-        self.declare_parameter("managed_node_name", "rclpy.Parameter.Type.STRING")
-        node_name = self.get_parameter("managed_node_name").value
-        service_change_state_name = "/" + node_name + "/change_state"
-        service_get_state_name = "/" + node_name + "/get_state"
-        self.client_change_state = self.create_client(
-            ChangeState, service_change_state_name
+        # BEGIN: This is a test publish
+        self.send_cmd_vel_back_ = self.create_publisher(
+            TwistStamped, f"{self.lf_node_name_}/cmd_vel", self.qos_profile_
         )
-        self.client_get_state = self.create_client(GetState, service_get_state_name)
-        self.get_logger().info("Controller lifecycle manager has started.")
-
-    def goal_callback(self, goal_request: ControlActions.Goal):
-        self.get_logger().info("Received a goal.")
-        request = (goal_request.request_id, goal_request.request_label)
-        # Policy: Refuse new goal if there's an ongoing goal
-        # with self.goal_lock_:
-        #     if self.goal_handle_ is not None and self.goal_handle_.is_active :
-        #         self.get_logger().error(
-        #             "A goal is already active, rejecting new goal..."
-        #         )
-        #         return GoalResponse.REJECT
-
-        # Validate goal request
-        self.get_logger().info(
-            "Accepting goal: " + f"id:{request[0]} and label:{request[1]}"
+        # END
+        self.odom_publisher_ = self.create_publisher(
+            Odometry, f"{self.lf_node_name_}/odom", self.qos_profile_
         )
+        self.joint_state_publisher_ = self.create_publisher(
+            JointState, f"{self.lf_node_name_}/joint_states", self.qos_profile_
+        )
+        self.get_logger().info("Controller action server has started.")
+        # Create subscriptions for joint state publish
+        # Include a subscription to cmd_vel topic
+        # Include another subscription to joint_states topic
+        # Check whether the frame_id from the wheels of the diffbot are connected and ready to send msgs
+        # Create a lifecycle_publisher to publish to /odom topic with nav_msgs/Odometry
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info("Server on activate")  ## REMOVE WHEN DONE
+        # Here should be created the subscribers
+        self.cmd_vel_subscriber = self.create_subscription(
+            TwistStamped, "cmd_vel", self.cmd_vel_subscription, self.qos_profile_
+        )
+        self.server_activated_ = True
+        return super().on_activate(state)
+
+    def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info("Server on deactivate")  ## REMOVE WHEN DONE
+        self.server_activated_ = False
+        # To make sure that the variable is not being accessed at the same time in two different threads
+        # is a best practice to lock the thread
+        with self.goal_lock_:
+            if self.goal_handle_ is not None and self.goal_handle_.is_active:
+                self.goal_handle_.abort()
+            # self.goal_queue_ = []
+        return super().on_deactivate(state)
+
+    def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info("Server on cleanup ")  ## REMOVE WHEN DONE
+        self.control_server_.destroy()
+        self.destroy_publisher(self.cmd_vel_subscriber)
+        self.destroy_publisher(self.send_cmd_vel_back_)
+        self.destroy_publisher(self.odom_publisher_)
+        self.destroy_publisher(self.joint_state_publisher_)
+        self.destroy_subscription(self.cmd_vel_subscriber)
+        self.joint_state_broadcaster_ = None
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().info("Server on shutdown")  ## REMOVE WHEN DONE
+        self.control_server_.destroy()
+        self.destroy_publisher(self.cmd_vel_subscriber)
+        self.destroy_publisher(self.send_cmd_vel_back_)
+        self.destroy_publisher(self.odom_publisher_)
+        self.destroy_publisher(self.joint_state_publisher_)
+        self.destroy_subscription(self.cmd_vel_subscriber)
+        self.joint_state_broadcaster_ = None
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
+        self.get_logger().error(
+            f"There was an error with state {state}"
+        )  ## REMOVE WHEN DONE
+        self.control_server_.destroy()
+        self.destroy_publisher(self.cmd_vel_subscriber)
+        self.destroy_publisher(self.send_cmd_vel_back_)
+        self.destroy_publisher(self.odom_publisher_)
+        self.destroy_publisher(self.joint_state_publisher_)
+        self.destroy_subscription(self.cmd_vel_subscriber)
+        self.joint_state_broadcaster_ = None
+        return super().on_error(state)
+
+    def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
+        self.get_logger().info("Received a goal.")  ## REMOVE WHEN DONE
+        if not self.server_activated_:
+            self.get_logger().warn("Server not yet activated.")
+            return GoalResponse.REJECT
+
+        # Validate goal request, again with locking the threat so the same
+        # variable is not being accessed at the same time
+        with self.goal_lock_:
+            # Policy: Goal preemption (must be after some goal are already valid thus preempting)
+            if self.goal_handle_ is not None and self.goal_handle_.is_active:
+                self.get_logger().warn(
+                    "A goal is already active, aborting new goal."
+                )  ## REMOVE WHEN DONE
+                self.goal_handle_.abort()
         return GoalResponse.ACCEPT
 
-        # Policy: Goal preemption (must be after some goal are already valid thus preempting)
-        # with self.goal_lock_:
-        #     if self.goal_handle_ is not None and self.goal_handle_.is_active:
-        #         self.get_logger().warn(
-        #             "Aborting current goal and accepting a ne w one..."
-        #         )
-        #         self.goal_handle_.abort()
-
-    def handle_accepted_callback(self, goal_handle: ServerGoalHandle):
-        with self.goal_lock_:
-            if self.goal_handle_ is not None:
-                self.goal_queue_.append(goal_handle)
-            else:
-                goal_handle.execute()
-
-    def cancel_callback(self, goal_handle: ServerGoalHandle):
+    def cancel_callback(self, goal_handle: ServerGoalHandle) -> CancelResponse:
         self.get_logger().warn(
             f"Received a cancel request, canceling with status {goal_handle.status}"
-        )
+        )  ## REMOVE WHEN DONE
+        self.goal_handle_.abort()
         return CancelResponse.ACCEPT
 
-    def execute_callback(self, goal_handle: ServerGoalHandle):
+    def execute_callback(self, goal_handle: ServerGoalHandle) -> ControlActions:
+        self.get_logger().info("Executing goal")
         # Locking the variable so it doesn't bring issues whilst several threads are being
         # used and prevent the variable to be used simultaneously by different threads
         with self.goal_lock_:
             # Set goal_handle as class attribute so it can be used outside of this callback
             self.goal_handle_ = goal_handle
 
-        # Got request from goal
-        request_id = goal_handle.request.request_id
-        request_label = goal_handle.request.request_label
+        # Implement new interfaces for dealing with goals, response and feedbacks
+        # I need to aim more in a goal toward a movement rather than labeling the actions itself
+        # Also feedback should return the robot's position (last implementation since it will
+        # use odometry, joint states and cmd_vel)
+
+        request = goal_handle.request.request
+        self.get_logger().info(f"Request: {request}")
+        child_frame_id = goal_handle.request.child_frame_id
+        self.get_logger().info(f"Request: {child_frame_id}")
 
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
 
-        timeout_counter = 0.0
+        twist_msg = TwistStamped()
+        twist_msg.header.frame_id = "Twist/cmd_vel"
 
-        # Execute the action
-        self.get_logger().info("Executing goal...")
-        counter = 0
-        while timeout_counter <= 10:
+        odom_msg = Odometry()
+        odom_msg.child_frame_id = child_frame_id
+        odom_msg.header.frame_id = "odom"
+
+        while rclpy.ok():
+            now = self.get_clock().now()
             if not goal_handle.is_active:
-                result.status_id = request_id
-                result.action_msg = request_label
-                self.next_in_queue()
+                result.result_msg = "Preempted by another goal, or node deactivated."
                 return result
-            if goal_handle.is_cancel_requested:
-                self.get_logger().info("Goal is being canceled.")
-                goal_handle.canceled()
-                self.get_logger().info("Goal canceled.")
-                result.status_id = -1
-                result.action_msg = "cancelled"
-                self.next_in_queue()
-                return result
-            self.get_logger().info("Request id: " + str(request_id))
-            feedback.process_id = request_id
-            goal_handle.publish_feedback(feedback)
-            timeout_counter += 1
-            time.sleep(1.25)
 
+            if goal_handle.is_cancel_requested:
+                result.result_msg = "Goal was cancel requested"
+                return result
+
+            if request == "transform":
+                self.got_package_ = False
+                twist_msg.header.stamp = now.to_msg()
+                twist_msg.twist.linear = self.linear_
+                twist_msg.twist.angular = self.angular_
+
+                odom_msg.header.stamp = now.to_msg()
+                odom_msg.pose.pose.position.x = 0.0
+                odom_msg.pose.pose.position.y = 0.0
+                odom_msg.pose.pose.position.z = 0.0
+                odom_msg.pose.pose.orientation.w = 1.0
+                odom_msg.pose.pose.orientation.x = 0.0
+                odom_msg.pose.pose.orientation.y = 0.0
+                odom_msg.pose.pose.orientation.z = 0.0
+                # odom_msg.pose.pose.orientation = (
+                #     tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+                # )
+                odom_msg.twist.twist.linear = self.linear_
+                odom_msg.twist.twist.angular = self.angular_
+                odom_msg.pose.covariance = self.covariance_fill_
+                odom_msg.twist.covariance = self.covariance_fill_
+
+                self.send_cmd_vel_back_.publish(twist_msg)
+                self.odom_publisher_.publish(odom_msg)
+            elif request == "empty":
+                time.sleep(1.0)
+                feedback.process = "Goal is empty."
+                goal_handle.publish_feedback(feedback)
+            else:
+                time.sleep(1.0)
+                feedback.process = "Unknown goal."
+                goal_handle.publish_feedback(feedback)
+
+        # Implement code for executing the robot movement (joint state publisher with tfs)
+        # Don't forget about odometry and so on and so forth (actually can't since the robot
+        # only moves in relation to the odom frame)
+        result.result_msg = "Conversions stopped and goal handled"
         # Once done counting, set goal final state...
         goal_handle.succeed()
-
-        # ...and send the result
-        result.status_id = request_id
-        result.action_msg = "finished goal"
-        self.next_in_queue()
+        # Won't implement a queue for now since, at first, the robot may only act once
+        # self.next_in_queue()
         return result
 
+    def cmd_vel_subscription(self, twist_msgs: TwistStamped):
+        self.header_frame_id = twist_msgs.header.frame_id
+        self.header_stamp = twist_msgs.header.stamp
+        self.linear_ = twist_msgs.twist.linear
+        self.angular_ = twist_msgs.twist.angular
+        self.got_package_ = True
+
+    ############################### YET TO BE IMPLEMENTED ###############################
+
+    def handle_accepted_callback(self, goal_handle: ServerGoalHandle):
+        # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
+        with self.goal_lock_:
+            if self.goal_handle_ is not None:
+                self.goal_queue_.append(goal_handle)
+            else:
+                goal_handle.execute()
+
     def next_in_queue(self):
+        # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
         with self.goal_lock_:
             if len(self.goal_queue_) > 0:
                 self.goal_queue_.pop(0).execute()
             else:
                 self.goal_handle_ = None
-
-    def get_state(self):
-        self.client_get_state.wait_for_service()
-        request_state = GetState.Request()
-        future = self.client_get_state.call_async(request_state)
-        rclpy.spin_until_future_complete(self, future)
-        return (future.result().current_state.id, future.result().current_state.label)
-
-    def change_state(self, transition: Transition):
-        self.client_change_state.wait_for_service()
-        request = ChangeState.Request()
-        request.transition = transition
-        future = self.client_change_state.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-
-    def initialization_sequence(self):
-        self.get_logger().info("Initializing first transition...")
-        self.get_logger().info("Changing state to 'configure'...")
-
-        transition = Transition()
-        transition.id = Transition.TRANSITION_CONFIGURE
-        transition.label = "configure"
-
-        id, label = self.get_state()
-        self.get_logger().warn("id: " + str(id) + " label: " + label)
-        self.change_state(transition)
-        id, label = self.get_state()
-        self.get_logger().warn("id: " + str(id) + " label: " + label)
-
-        self.get_logger().info("State changed to configured!")
 
 
 def main(args=None):

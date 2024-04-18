@@ -23,8 +23,7 @@ setup(
     entry_points={
         "console_scripts": [
             "controller_server = uwaba_prototype_diffbot_py.controller_server:main",
-            "controller_client = uwaba_prototype_diffbot_py.controller_client:main",
-            "controller_lifecycle = uwaba_prototype_diffbot_py.controller_lifecycle:main"
+            "controller_server_manager = uwaba_prototype_diffbot_py.controller_server_manager:main"
         ],
     },
 )
