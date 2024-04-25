@@ -22,8 +22,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "controller_server = uwaba_prototype_diffbot_py.controller_server:main",
-            "controller_manager = uwaba_prototype_diffbot_py.controller_manager:main"
+            "uwaba_controller_server = uwaba_prototype_diffbot_py.uwaba_controller_server:main",
+            "uwaba_controller_manager = uwaba_prototype_diffbot_py.uwaba_controller_manager:main"
         ],
     },
 )

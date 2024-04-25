@@ -3,6 +3,7 @@ import rclpy
 import time
 import threading
 import tf_transformations
+import numpy as np
 
 from rclpy.lifecycle import LifecycleNode
 from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
@@ -16,9 +17,12 @@ from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
 
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, Quaternion
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
+
+from uwaba_prototype_diffbot_py.uwaba_controller_manager import ControllerManager
+
 
 ###################################################################################################
 #                                                                                                 #
@@ -36,18 +40,14 @@ class ControllerServer(LifecycleNode):
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
-        self.flag_lock_ = threading.RLock()
+        self.flag_lock_ = threading.Lock()
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.linear_ = TwistStamped().twist.linear
         self.angular_ = TwistStamped().twist.angular
-        self.covariance_fill_ = [0.0 for _ in range(36)]
-        # self.goal_queue_ = []
+        self.covariance_fill_ = np.empty((36,))
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
-        ###############################################################
-        ######## DON'T FORGET TO REMOVE NODE NAMES FROM TOPICS ########
-        ###############################################################
         self.control_server_ = ActionServer(
             self,
             ControlActions,
@@ -70,11 +70,7 @@ class ControllerServer(LifecycleNode):
             JointState, f"{self.lf_node_name_}/joint_states", self.qos_profile_
         )
         self.get_logger().info("Controller action server has started.")
-        # Create subscriptions for joint state publish
-        # Include a subscription to cmd_vel topic
-        # Include another subscription to joint_states topic
         # Check whether the frame_id from the wheels of the diffbot are connected and ready to send msgs
-        # Create a lifecycle_publisher to publish to /odom topic with nav_msgs/Odometry
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -138,7 +134,7 @@ class ControllerServer(LifecycleNode):
             self.get_logger().warn("Server not yet activated.")
             return GoalResponse.REJECT
 
-        # Validate goal request, again with locking the threat so the same
+        # Validate goal request, again with locking the thread so the same
         # variable is not being accessed at the same time
         with self.goal_lock_:
             # Policy: Goal preemption (must be after some goal are already valid thus preempting)
@@ -178,14 +174,20 @@ class ControllerServer(LifecycleNode):
         feedback = ControlActions.Feedback()  # instance the feedback object
 
         twist_msg = TwistStamped()
-        twist_msg.header.frame_id = "Twist/cmd_vel"
-
         odom_msg = Odometry()
+        orientations = Quaternion()
+
+        # Implement pose structure later, for now setting values as zeros
+        # These value must come from a subscription callback to PoseStamped
+        # Message type
+        pose_pos = (0.0, 0.0, 0.0)
+        pose_ori = (0.0, 0.0, 0.0)
+
+        twist_msg.header.frame_id = f"{self.lf_node_name_}/cmd_vel"
         odom_msg.child_frame_id = child_frame_id
         odom_msg.header.frame_id = "odom"
 
         while rclpy.ok():
-            now = self.get_clock().now()
             if not goal_handle.is_active:
                 result.result_msg = "Preempted by another goal, or node deactivated."
                 return result
@@ -195,36 +197,31 @@ class ControllerServer(LifecycleNode):
                 return result
 
             if request == "transform" and self.got_package_:
-                self.got_package_ = False
-                twist_msg.header.stamp = now.to_msg()
+                with self.flag_lock_:
+                    self.got_package_ = False
+                twist_msg.header.stamp = self.get_clock().now().to_msg()
                 twist_msg.twist.linear = self.linear_
                 twist_msg.twist.angular = self.angular_
 
-                odom_msg.header.stamp = now.to_msg()
-                odom_msg.pose.pose.position.x = 0.0
-                odom_msg.pose.pose.position.y = 0.0
-                odom_msg.pose.pose.position.z = 0.0
-                odom_msg.pose.pose.orientation.w = 1.0
-                odom_msg.pose.pose.orientation.x = 0.0
-                odom_msg.pose.pose.orientation.y = 0.0
-                odom_msg.pose.pose.orientation.z = 0.0
-                # odom_msg.pose.pose.orientation = (
-                #     tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
-                # )
+                # BEGIN:
+                # Change these values so that the pose is estimated by the joint_states
+                # alongside with cmd_vel
+                odom_msg.header.stamp = self.get_clock().now().to_msg()
+                odom_msg.pose.pose.position.x = pose_pos
+                orientations = tf_transformations.quaternion_from_euler(pose_ori)
+                odom_msg.pose.pose.orientation = orientations
                 odom_msg.twist.twist.linear = self.linear_
                 odom_msg.twist.twist.angular = self.angular_
                 odom_msg.pose.covariance = self.covariance_fill_
                 odom_msg.twist.covariance = self.covariance_fill_
+                # END
 
                 self.send_cmd_vel_back_.publish(twist_msg)
                 self.odom_publisher_.publish(odom_msg)
-            elif request == "empty":
+            elif request == "empty" or request is None or request == "":
                 time.sleep(1.0)
-                feedback.process = "Goal is empty."
+                feedback.process = "Goal request variable is empty."
                 goal_handle.publish_feedback(feedback)
-            # else:
-            #     feedback.process = "Unknown goal or package not yet ready"
-            #     goal_handle.publish_feedback(feedback)
 
         # Implement code for executing the robot movement (joint state publisher with tfs)
         # Don't forget about odometry and so on and so forth (actually can't since the robot
@@ -241,7 +238,8 @@ class ControllerServer(LifecycleNode):
         self.header_stamp = twist_msgs.header.stamp
         self.linear_ = twist_msgs.twist.linear
         self.angular_ = twist_msgs.twist.angular
-        self.got_package_ = True
+        with self.flag_lock_:
+            self.got_package_ = True
 
     ############################### YET TO BE IMPLEMENTED ###############################
 
