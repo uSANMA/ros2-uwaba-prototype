@@ -187,10 +187,14 @@ class ControllerServer(LifecycleNode):
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
 
-        twist_msg = TwistStamped()
-        odom_msg = Odometry()
+        odom_trans = TransformStamped()
+        odom_trans.header.frame_id = "odom"
+        odom_trans.child_frame_id = "base_footprint"
 
+        twist_msg = TwistStamped()
         twist_msg.header.frame_id = f"{self.lf_node_name_}/cmd_vel"
+
+        odom_msg = Odometry()
         odom_msg.child_frame_id = child_frame_id
         odom_msg.header.frame_id = "odom"
 
@@ -204,10 +208,14 @@ class ControllerServer(LifecycleNode):
                 return result
 
             with self.cmd_flag_lock_:
-                acquired = self.joint_flag_lock_.acquire(timeout=1/15)
+                acquired = self.joint_flag_lock_.acquire(timeout=1 / 15)
                 if acquired:
                     try:
-                        if request == "transform" and self.got_twist_package_ and self.got_joint_package_:
+                        if (
+                            request == "transform"
+                            and self.got_twist_package_
+                            and self.got_joint_package_
+                        ):
                             self.got_twist_package_ = False
                             self.got_joint_package_ = False
                             twist_msg.header.stamp = self.cmd_vel_header_stamp_
@@ -229,20 +237,41 @@ class ControllerServer(LifecycleNode):
                                 odom_msg.pose.pose.orientation.y,
                                 odom_msg.pose.pose.orientation.z,
                                 odom_msg.pose.pose.orientation.w,
-                            ) = tf_transformations.quaternion_from_euler(0.0, 0.0, pi / 2)
+                            ) = tf_transformations.quaternion_from_euler(
+                                0.0, 0.0, pi / 2
+                            )
                             # END
                             odom_msg.twist.twist = twist_msg.twist
                             odom_msg.pose.covariance = self.covariance_fill_
                             odom_msg.twist.covariance = self.covariance_fill_
                             # END
+                            odom_trans.header.stamp = self.get_clock().now().to_msg()
+                            (
+                                odom_trans.transform.translation.x,
+                                odom_trans.transform.translation.y,
+                                odom_trans.transform.translation.z,
+                            ) = (
+                                self.joint_state_position_[0],
+                                self.joint_state_position_[1],
+                                self.joint_state_position_[2],
+                            )
+                            (
+                                odom_trans.transform.rotation.x,
+                                odom_trans.transform.rotation.y,
+                                odom_trans.transform.rotation.z,
+                                odom_trans.transform.rotation.w,
+                            ) = tf_transformations.quaternion_from_euler(
+                                0.0, 0.0, self.cmd_vel_angular_.z
+                            )
 
                             self.send_cmd_vel_back_.publish(twist_msg)
                             self.odom_publisher_.publish(odom_msg)
+                            self.joint_state_broadcaster_.sendTransform(odom_trans)
                     finally:
                         self.joint_flag_lock_.release()
                 else:
                     self.get_logger().warn("Joint State flag wasn't acquired properly.")
-                
+
             if request == "empty" or request is None or request == "":
                 time.sleep(1.0)
                 feedback.process = "Goal request variable is empty."

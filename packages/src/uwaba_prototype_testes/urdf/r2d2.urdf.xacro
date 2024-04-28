@@ -155,7 +155,8 @@
             <contact_coefficients mu="0" kp="1000.0" kd="1.0" />
         </collision>
     </link>
-    <joint name="periscope" type="prismatic">
+    <!-- associated with height value -->
+    <joint name="periscope" type="prismatic"> 
         <origin xyz=".12 0 .15" />
         <axis xyz="0 0 1" />
         <limit upper="0" lower="-.5" effort="10" velocity="10" />
