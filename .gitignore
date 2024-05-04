@@ -5,3 +5,5 @@ packages/install/*
 packages/log/*
 
 bags/*
+
+packages/.vscode
