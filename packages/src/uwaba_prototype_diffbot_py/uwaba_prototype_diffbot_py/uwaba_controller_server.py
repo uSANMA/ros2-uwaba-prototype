@@ -13,6 +13,7 @@ from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.time import Time
 
 from tf2_ros import TransformBroadcaster, TransformStamped
 
@@ -42,20 +43,20 @@ class ControllerServer(LifecycleNode):
         self.goal_lock_ = threading.Lock()
         self.cmd_flag_lock_ = threading.Lock()
         self.got_twist_package_ = False
-        self.joint_flag_lock_ = threading.Lock()
-        self.got_joint_package_ = False
+        self.encoder_flag_lock_ = threading.Lock()
+        self.got_encoder_package_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.covariance_fill_ = np.empty((36,))
         self.cmd_vel_header_stamp_ = None
         self.cmd_vel_header_frame_id_ = None
         self.cmd_vel_linear_ = None
         self.cmd_vel_angular_ = None
-        self.joint_state_header_stamp_ = None
-        self.joint_state_header_frame_id_ = None
-        self.joint_state_names_ = None
-        self.joint_state_position_ = None
-        self.joint_state_velocity_ = None
-        self.joint_state_effort_ = None
+        self.encoder_state_header_stamp_ = None
+        self.encoder_state_header_frame_id_ = None
+        self.encoder_state_names_ = None
+        self.encoder_state_position_ = None
+        self.encoder_state_velocity_ = None  # Odometry velocities
+        self.encoder_state_effort_ = None
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
@@ -90,7 +91,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_subscriber = self.create_subscription(
             TwistStamped, "cmd_vel", self.cmd_vel_subscription, self.qos_profile_
         )
-        self.uros_joint_state_subscriber = self.create_subscription(
+        self.uros_encoder_state_subscriber = self.create_subscription(
             JointState, "encoder", self.uros_encoder_subscription, self.qos_profile_
         )
         self.server_activated_ = True
@@ -115,7 +116,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_publisher(self.odom_publisher_)
         self.destroy_publisher(self.joint_state_publisher_)
         self.destroy_subscription(self.cmd_vel_subscriber)
-        self.destroy_subscription(self.uros_joint_state_subscriber)
+        self.destroy_subscription(self.uros_encoder_state_subscriber)
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -126,7 +127,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_publisher(self.odom_publisher_)
         self.destroy_publisher(self.joint_state_publisher_)
         self.destroy_subscription(self.cmd_vel_subscriber)
-        self.destroy_subscription(self.uros_joint_state_subscriber)
+        self.destroy_subscription(self.uros_encoder_state_subscriber)
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -139,7 +140,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_publisher(self.odom_publisher_)
         self.destroy_publisher(self.joint_state_publisher_)
         self.destroy_subscription(self.cmd_vel_subscriber)
-        self.destroy_subscription(self.uros_joint_state_subscriber)
+        self.destroy_subscription(self.uros_encoder_state_subscriber)
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -195,8 +196,14 @@ class ControllerServer(LifecycleNode):
         twist_msg.header.frame_id = f"{self.lf_node_name_}/cmd_vel"
 
         odom_msg = Odometry()
-        odom_msg.child_frame_id = child_frame_id
+        odom_msg.child_frame_id = "base_footprint"
         odom_msg.header.frame_id = "odom"
+
+        starting_time = self.get_clock().now()
+        # Odometry starting point
+        x = 0.0
+        y = 0.0
+        th = 0.0
 
         while rclpy.ok():
             if not goal_handle.is_active:
@@ -208,69 +215,44 @@ class ControllerServer(LifecycleNode):
                 return result
 
             with self.cmd_flag_lock_:
-                acquired = self.joint_flag_lock_.acquire(timeout=1 / 15)
+                acquired = self.encoder_flag_lock_.acquire(timeout=1 / 15)
                 if acquired:
                     try:
                         if (
                             request == "transform"
                             and self.got_twist_package_
-                            and self.got_joint_package_
+                            and self.got_encoder_package_
                         ):
                             self.got_twist_package_ = False
-                            self.got_joint_package_ = False
-                            twist_msg.header.stamp = self.cmd_vel_header_stamp_
-                            twist_msg.twist.linear = self.cmd_vel_linear_
-                            twist_msg.twist.angular = self.cmd_vel_angular_
+                            self.got_encoder_package_ = False
 
-                            # BEGIN:
-                            # Change these values so that the pose is estimated by the joint_states
-                            # alongside with cmd_vel
-                            odom_msg.header.stamp = self.get_clock().now().to_msg()
-                            # BEGIN: The values below must be given from the joint_state subscriber function callback
-                            (
-                                odom_msg.pose.pose.position.x,
-                                odom_msg.pose.pose.position.y,
-                                odom_msg.pose.pose.position.z,
-                            ) = (0.0, 3.0, 0.0)
-                            (
-                                odom_msg.pose.pose.orientation.x,
-                                odom_msg.pose.pose.orientation.y,
-                                odom_msg.pose.pose.orientation.z,
-                                odom_msg.pose.pose.orientation.w,
-                            ) = tf_transformations.quaternion_from_euler(
-                                0.0, 0.0, pi / 2
-                            )
-                            # END
-                            odom_msg.twist.twist = twist_msg.twist
-                            odom_msg.pose.covariance = self.covariance_fill_
-                            odom_msg.twist.covariance = self.covariance_fill_
-                            # END
-                            odom_trans.header.stamp = self.get_clock().now().to_msg()
-                            (
-                                odom_trans.transform.translation.x,
-                                odom_trans.transform.translation.y,
-                                odom_trans.transform.translation.z,
-                            ) = (
-                                self.joint_state_position_[0],
-                                self.joint_state_position_[1],
-                                self.joint_state_position_[2],
-                            )
-                            (
-                                odom_trans.transform.rotation.x,
-                                odom_trans.transform.rotation.y,
-                                odom_trans.transform.rotation.z,
-                                odom_trans.transform.rotation.w,
-                            ) = tf_transformations.quaternion_from_euler(
-                                0.0, 0.0, self.cmd_vel_angular_.z
-                            )
+                            vx = self.cmd_vel_linear_.x
+                            vy = self.cmd_vel_linear_.y
+                            vth = self.cmd_vel_angular_.z
 
-                            self.send_cmd_vel_back_.publish(twist_msg)
-                            self.odom_publisher_.publish(odom_msg)
-                            self.joint_state_broadcaster_.sendTransform(odom_trans)
+                            current_time = self.get_clock().now()
+
+                            dt = (current_time - starting_time).to_msg().sec
+                            delta_x = (vx * cos(th) - vy * sin(th)) * dt
+                            delta_y = (vx * sin(th) + vy * cos(th)) * dt
+                            delta_th = vth * dt
+
+                            x += delta_x
+                            y += delta_y
+                            th += delta_th
+
+                            feedback.process = f"\n Seconds elapsed: {dt}\n x: {x}\n y: {y}\n th: {th}\n"
+                            goal_handle.publish_feedback(feedback)
+
+                            # self.send_cmd_vel_back_.publish(twist_msg)
+                            # self.odom_publisher_.publish(odom_msg)
+                            # self.joint_state_broadcaster_.sendTransform(odom_trans)
                     finally:
-                        self.joint_flag_lock_.release()
+                        self.encoder_flag_lock_.release()
                 else:
-                    self.get_logger().warn("Joint State flag wasn't acquired properly.")
+                    self.get_logger().error(
+                        "Encoder State flag wasn't acquired properly."
+                    )
 
             if request == "empty" or request is None or request == "":
                 time.sleep(1.0)
@@ -295,14 +277,14 @@ class ControllerServer(LifecycleNode):
             self.got_twist_package_ = True
 
     def uros_encoder_subscription(self, joint_msg: JointState):
-        self.joint_state_header_stamp_ = joint_msg.header.stamp
-        self.joint_state_header_frame_id_ = joint_msg.header.frame_id
-        self.joint_state_names_ = [joint_msg.name]
-        self.joint_state_position_ = [joint_msg.position]
-        self.joint_state_velocity_ = [joint_msg.velocity]
-        self.joint_state_effort_ = [joint_msg.effort]
-        with self.joint_flag_lock_:
-            self.got_joint_package_ = True
+        self.encoder_state_header_stamp_ = joint_msg.header.stamp
+        self.encoder_state_header_frame_id_ = joint_msg.header.frame_id
+        self.encoder_state_names_ = [joint_msg.name]
+        self.encoder_state_position_ = [joint_msg.position]
+        self.encoder_state_velocity_ = [joint_msg.velocity]
+        self.encoder_state_effort_ = [joint_msg.effort]
+        with self.encoder_flag_lock_:
+            self.got_encoder_package_ = True
 
     ############################### YET TO BE IMPLEMENTED ###############################
 
