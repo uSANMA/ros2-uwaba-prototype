@@ -196,8 +196,8 @@ class ControllerServer(LifecycleNode):
         twist_msg.header.frame_id = f"{self.lf_node_name_}/cmd_vel"
 
         odom_msg = Odometry()
-        odom_msg.child_frame_id = "base_footprint"
         odom_msg.header.frame_id = "odom"
+        odom_msg.child_frame_id = "base_footprint"
 
         starting_time = self.get_clock().now()
         # Odometry starting point
@@ -241,7 +241,9 @@ class ControllerServer(LifecycleNode):
                             y += delta_y
                             th += delta_th
 
-                            feedback.process = f"\n Seconds elapsed: {dt}\n x: {x}\n y: {y}\n th: {th}\n"
+                            feedback.process = f"\n - Seconds elapsed: {dt}\n x: {x}\n y: {y}\n th: {th} \
+                                \n - Velocities:\n x: {vx}\n y: {vy}\n theta: {vth} \
+                                \n - Variations:\n delta_x: {delta_x}\n delta_y: {delta_y}\n delta_theta: {delta_th}"
                             goal_handle.publish_feedback(feedback)
 
                             # self.send_cmd_vel_back_.publish(twist_msg)

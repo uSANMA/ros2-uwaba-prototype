@@ -12,9 +12,8 @@ def generate_launch_description():
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
     )
-    default_model_path = os.path.join(pkg_share, "urdf/uwaba_prototype.urdf")
+    default_model_path = os.path.join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
     default_rviz_config_path = os.path.join(pkg_share, "rviz/urdf_config.rviz")
-    # world_path=os.path.join(pkg_share, 'world/my_world.sdf')
 
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
@@ -35,16 +34,6 @@ def generate_launch_description():
         output="screen",
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
-    uwaba_server_node = Node(
-        package="uwaba_prototype_diffbot_py",
-        executable="uwaba_controller_server",
-        name="uwaba_prototype_controller_server",
-    )
-    uwaba_client_node = Node(
-        package="uwaba_prototype_diffbot_py",
-        executable="uwaba_controller_manager",
-        name="uwaba_prototype_controller_client",
-    )
 
     # robot_localization_node = Node(
     #      package='robot_localization',
@@ -53,14 +42,6 @@ def generate_launch_description():
     #      output='screen',
     #      parameters=[os.path.join(pkg_share, 'config/ekf.yaml'), {'use_sim_time': LaunchConfiguration('use_sim_time')}]
     # )
-
-    # Delay rviz start after `joint_state_broadcaster`
-    delay_rviz_after_joint_state_broadcaster_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=uwaba_server_node,
-            on_exit=[rviz_node],
-        )
-    )
 
     return launch.LaunchDescription(
         [
@@ -74,12 +55,9 @@ def generate_launch_description():
                 default_value=default_rviz_config_path,
                 description="Absolute path to rviz config file",
             ),
-            # launch.actions.ExecuteProcess(cmd=['gazebo', '--verbose', '-s', 'libgazebo_ros_init.so', '-s', 'libgazebo_ros_factory.so', world_path], output='screen'),
-            uwaba_server_node,
-            uwaba_client_node,
             joint_state_publisher_node,
             robot_state_publisher_node,
             # robot_localization_node,
-            delay_rviz_after_joint_state_broadcaster_spawner,
+            rviz_node,
         ]
     )
