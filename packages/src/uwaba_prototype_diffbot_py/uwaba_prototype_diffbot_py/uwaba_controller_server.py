@@ -233,15 +233,17 @@ class ControllerServer(LifecycleNode):
                         ):
                             self.got_twist_package_ = False
                             self.got_encoder_package_ = False
+                            
+                            
 
                             vx = self.cmd_vel_linear_.x
-                            vy = self.cmd_vel_linear_.y
+                            vy = 0.0
                             vth = self.cmd_vel_angular_.z
 
                             current_time = self.get_clock().now()
 
                             dt = (current_time - starting_time).to_msg()
-                            dt = float(dt.sec + (dt.nanosec/1e9))
+                            dt = float(dt.sec + (dt.nanosec / 1e9))
                             delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
                             delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
                             delta_th = float(vth * dt)
@@ -322,7 +324,7 @@ class ControllerServer(LifecycleNode):
         self.encoder_state_header_stamp_ = joint_msg.header.stamp
         self.encoder_state_header_frame_id_ = joint_msg.header.frame_id
         self.encoder_state_names_ = [joint_msg.name]
-        self.encoder_state_position_ = [joint_msg.position]
+        # self.encoder_state_position_ = [joint_msg.position]
         self.encoder_state_velocity_ = [joint_msg.velocity]
         self.encoder_state_effort_ = [joint_msg.effort]
         with self.encoder_flag_lock_:
