@@ -19,7 +19,7 @@ from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
 
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, Quaternion
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
@@ -35,7 +35,7 @@ from uwaba_prototype_diffbot_py.uwaba_controller_manager import ControllerManage
 
 class ControllerServer(LifecycleNode):
     def __init__(self):
-        self.lf_node_name_ = "controller_server_node"
+        self.lf_node_name_ = "uwaba_controller_server_node"
         super().__init__(f"{self.lf_node_name_}")
         self.qos_profile_ = QoSProfile(depth=10)
         self.server_activated_ = False
@@ -57,6 +57,8 @@ class ControllerServer(LifecycleNode):
         self.encoder_state_position_ = None
         self.encoder_state_velocity_ = None  # Odometry velocities
         self.encoder_state_effort_ = None
+        self.joint_state_left_wheel_ = 0.0
+        self.joint_state_right_wheel_ = 0.0
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
@@ -76,10 +78,10 @@ class ControllerServer(LifecycleNode):
         )
         # END
         self.odom_publisher_ = self.create_publisher(
-            Odometry, f"{self.lf_node_name_}/odom", self.qos_profile_
+            Odometry, f"odom", self.qos_profile_
         )
         self.joint_state_publisher_ = self.create_publisher(
-            JointState, f"{self.lf_node_name_}/joint_states", self.qos_profile_
+            JointState, f"joint_states", self.qos_profile_
         )
         self.get_logger().info("Controller action server has started.")
         # Check whether the frame_id from the wheels of the diffbot are connected and ready to send msgs
@@ -188,6 +190,12 @@ class ControllerServer(LifecycleNode):
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
 
+        joint_state = JointState()
+        joint_state.name = ["Left_sprocket_base_joint", "Right_sprocket_base_joint"]
+        joint_state.header.frame_id = "wheels_states"
+
+        orientation = Quaternion()
+
         odom_trans = TransformStamped()
         odom_trans.header.frame_id = "odom"
         odom_trans.child_frame_id = "base_footprint"
@@ -232,23 +240,55 @@ class ControllerServer(LifecycleNode):
 
                             current_time = self.get_clock().now()
 
-                            dt = (current_time - starting_time).to_msg().sec
-                            delta_x = (vx * cos(th) - vy * sin(th)) * dt
-                            delta_y = (vx * sin(th) + vy * cos(th)) * dt
-                            delta_th = vth * dt
+                            dt = (current_time - starting_time).to_msg()
+                            dt = float(dt.sec + (dt.nanosec/1e9))
+                            delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
+                            delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
+                            delta_th = float(vth * dt)
 
                             x += delta_x
                             y += delta_y
                             th += delta_th
+
+                            self.joint_state_left_wheel_ += x
+                            self.joint_state_right_wheel_ += x
+
+                            (
+                                orientation.x,
+                                orientation.y,
+                                orientation.z,
+                                orientation.w,
+                            ) = tf_transformations.quaternion_from_euler(0.0, 0.0, th)
 
                             feedback.process = f"\n - Seconds elapsed: {dt}\n x: {x}\n y: {y}\n th: {th} \
                                 \n - Velocities:\n x: {vx}\n y: {vy}\n theta: {vth} \
                                 \n - Variations:\n delta_x: {delta_x}\n delta_y: {delta_y}\n delta_theta: {delta_th}"
                             goal_handle.publish_feedback(feedback)
 
+                            joint_state.header.stamp = current_time.to_msg()
+                            joint_state.position = [
+                                self.joint_state_left_wheel_,
+                                self.joint_state_right_wheel_,
+                            ]
+
+                            odom_msg.header.stamp = current_time.to_msg()
+                            odom_msg.pose.pose.position.x = x
+                            odom_msg.pose.pose.position.y = y
+                            odom_msg.pose.pose.position.z = 0.0
+                            odom_msg.twist.twist.linear = self.cmd_vel_linear_
+                            odom_msg.twist.twist.angular = self.cmd_vel_angular_
+                            odom_msg.pose.pose.orientation = orientation
+
+                            odom_trans.header.stamp = current_time.to_msg()
+                            odom_trans.transform.translation.x = x
+                            odom_trans.transform.translation.y = y
+                            odom_trans.transform.translation.z = 0.0
+                            odom_trans.transform.rotation = orientation
+
                             # self.send_cmd_vel_back_.publish(twist_msg)
-                            # self.odom_publisher_.publish(odom_msg)
-                            # self.joint_state_broadcaster_.sendTransform(odom_trans)
+                            self.odom_publisher_.publish(odom_msg)
+                            self.joint_state_publisher_.publish(joint_state)
+                            self.joint_state_broadcaster_.sendTransform(odom_trans)
                     finally:
                         self.encoder_flag_lock_.release()
                 else:

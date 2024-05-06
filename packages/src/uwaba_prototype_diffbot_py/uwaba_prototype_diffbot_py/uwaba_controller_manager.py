@@ -13,14 +13,14 @@ from uwaba_prototype_interfaces.action import ControlActions
 
 class ControllerManager(Node):
     def __init__(self):
-        super().__init__("controller_manager")
+        super().__init__("uwaba_controller_manager_node")
         self.declare_parameter("goal_request", "empty")
         self.goal_request_ = self.get_parameter("goal_request").value
         self.declare_parameter("child_frame_id", "empty")
         self.goal_child_frame_id_ = self.get_parameter("child_frame_id").value
-        self.declare_parameter("managed_node_names", "controller_server_node")
-        node_name = self.get_parameter("managed_node_names").value
-        self.get_logger().info(f"Nodes: {node_name}")
+        self.declare_parameter("managed_node_name", "uwaba_controller_server_node")
+        node_name = self.get_parameter("managed_node_name").value
+        self.get_logger().info(f"Server Node: {node_name}")
         service_change_state_name = f"/{node_name}/change_state"
         service_get_state = f"/{node_name}/get_state"
         self.client_ = self.create_client(ChangeState, service_change_state_name)
