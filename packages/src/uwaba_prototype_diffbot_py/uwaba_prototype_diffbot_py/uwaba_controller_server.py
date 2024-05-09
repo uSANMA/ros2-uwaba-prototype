@@ -13,17 +13,17 @@ from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.time import Time
 
 from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
+from uwaba_prototype_interfaces.msg import Encoders
 
 from geometry_msgs.msg import TwistStamped, Quaternion
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
-from uwaba_prototype_diffbot_py.uwaba_controller_manager import ControllerManager
+# from uwaba_prototype_diffbot_py.uwaba_controller_manager import ControllerManager
 
 
 ###################################################################################################
@@ -94,7 +94,7 @@ class ControllerServer(LifecycleNode):
             TwistStamped, "cmd_vel", self.cmd_vel_subscription, self.qos_profile_
         )
         self.uros_encoder_state_subscriber = self.create_subscription(
-            JointState, "encoder", self.uros_encoder_subscription, self.qos_profile_
+            Encoders, "encoder", self.uros_encoder_subscription, self.qos_profile_
         )
         self.server_activated_ = True
         return super().on_activate(state)
@@ -234,6 +234,9 @@ class ControllerServer(LifecycleNode):
                             self.got_twist_package_ = False
                             self.got_encoder_package_ = False
                             
+                            left_encoder_tick = self.encoder_state_encoders[0]
+                            right_encoder_tick = self.encoder_state_encoders[1]
+                            
                             
 
                             vx = self.cmd_vel_linear_.x
@@ -320,33 +323,33 @@ class ControllerServer(LifecycleNode):
         with self.cmd_flag_lock_:
             self.got_twist_package_ = True
 
-    def uros_encoder_subscription(self, joint_msg: JointState):
-        self.encoder_state_header_stamp_ = joint_msg.header.stamp
-        self.encoder_state_header_frame_id_ = joint_msg.header.frame_id
-        self.encoder_state_names_ = [joint_msg.name]
-        # self.encoder_state_position_ = [joint_msg.position]
-        self.encoder_state_velocity_ = [joint_msg.velocity]
-        self.encoder_state_effort_ = [joint_msg.effort]
+    def uros_encoder_subscription(self, encoder_msgs: Encoders):
+        self.encoder_state_header_stamp_ = encoder_msgs.header.stamp
+        self.encoder_state_header_frame_id_ = encoder_msgs.header.frame_id
+        self.encoder_state_encoders = encoder_msgs.encoders
         with self.encoder_flag_lock_:
             self.got_encoder_package_ = True
+            
+    def encoder_calc(self, time, left_encoder, right_encoder):
+        pass
 
     ############################### YET TO BE IMPLEMENTED ###############################
 
-    def handle_accepted_callback(self, goal_handle: ServerGoalHandle):
-        # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
-        with self.goal_lock_:
-            if self.goal_handle_ is not None:
-                self.goal_queue_.append(goal_handle)
-            else:
-                goal_handle.execute()
+    # def handle_accepted_callback(self, goal_handle: ServerGoalHandle):
+    #     # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
+    #     with self.goal_lock_:
+    #         if self.goal_handle_ is not None:
+    #             self.goal_queue_.append(goal_handle)
+    #         else:
+    #             goal_handle.execute()
 
-    def next_in_queue(self):
-        # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
-        with self.goal_lock_:
-            if len(self.goal_queue_) > 0:
-                self.goal_queue_.pop(0).execute()
-            else:
-                self.goal_handle_ = None
+    # def next_in_queue(self):
+    #     # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
+    #     with self.goal_lock_:
+    #         if len(self.goal_queue_) > 0:
+    #             self.goal_queue_.pop(0).execute()
+    #         else:
+    #             self.goal_handle_ = None
 
     #####################################################################################
 
