@@ -17,7 +17,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
-from uwaba_prototype_interfaces.msg import Encoders
+from uwaba_prototype_interfaces.msg import MotorVels
 
 from geometry_msgs.msg import TwistStamped, Quaternion
 from sensor_msgs.msg import JointState
@@ -46,17 +46,14 @@ class ControllerServer(LifecycleNode):
         self.encoder_flag_lock_ = threading.Lock()
         self.got_encoder_package_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
-        self.covariance_fill_ = np.empty((36,))
+        self.covariance_fill_ = np.zeros((36,))
         self.cmd_vel_header_stamp_ = None
         self.cmd_vel_header_frame_id_ = None
         self.cmd_vel_linear_ = None
         self.cmd_vel_angular_ = None
-        self.encoder_state_header_stamp_ = None
-        self.encoder_state_header_frame_id_ = None
-        self.encoder_state_names_ = None
-        self.encoder_state_position_ = None
-        self.encoder_state_velocity_ = None  # Odometry velocities
-        self.encoder_state_effort_ = None
+        self.motor_velocity_header_stamp_ = None
+        self.motor_velocity_header_frame_id_ = None
+        self.motor_velocity_encoders_ = None
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
 
@@ -94,7 +91,7 @@ class ControllerServer(LifecycleNode):
             TwistStamped, "cmd_vel", self.cmd_vel_subscription, self.qos_profile_
         )
         self.uros_encoder_state_subscriber = self.create_subscription(
-            Encoders, "encoder", self.uros_encoder_subscription, self.qos_profile_
+            MotorVels, "encoder", self.uros_encoder_subscription, self.qos_profile_
         )
         self.server_activated_ = True
         return super().on_activate(state)
@@ -233,11 +230,6 @@ class ControllerServer(LifecycleNode):
                         ):
                             self.got_twist_package_ = False
                             self.got_encoder_package_ = False
-                            
-                            left_encoder_tick = self.encoder_state_encoders[0]
-                            right_encoder_tick = self.encoder_state_encoders[1]
-                            
-                            
 
                             vx = self.cmd_vel_linear_.x
                             vy = 0.0
@@ -323,13 +315,13 @@ class ControllerServer(LifecycleNode):
         with self.cmd_flag_lock_:
             self.got_twist_package_ = True
 
-    def uros_encoder_subscription(self, encoder_msgs: Encoders):
-        self.encoder_state_header_stamp_ = encoder_msgs.header.stamp
-        self.encoder_state_header_frame_id_ = encoder_msgs.header.frame_id
-        self.encoder_state_encoders = encoder_msgs.encoders
+    def uros_encoder_subscription(self, encoder_msgs: MotorVels):
+        self.motor_velocity_header_stamp_ = encoder_msgs.header.stamp
+        self.motor_velocity_header_frame_id_ = encoder_msgs.header.frame_id
+        self.motor_velocity_encoders_ = encoder_msgs.motor_vel
         with self.encoder_flag_lock_:
             self.got_encoder_package_ = True
-            
+
     def encoder_calc(self, time, left_encoder, right_encoder):
         pass
 
