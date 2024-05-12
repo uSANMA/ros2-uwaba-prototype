@@ -17,10 +17,11 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
-from uwaba_prototype_interfaces.msg import MotorVels
+
+# from uwaba_prototype_interfaces.msg import MotorVels
 
 from geometry_msgs.msg import TwistStamped, Quaternion
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from nav_msgs.msg import Odometry
 
 # from uwaba_prototype_diffbot_py.uwaba_controller_manager import ControllerManager
@@ -37,6 +38,7 @@ class ControllerServer(LifecycleNode):
     def __init__(self):
         self.lf_node_name_ = "uwaba_controller_server_node"
         super().__init__(f"{self.lf_node_name_}")
+        # Constructor parameters
         self.qos_profile_ = QoSProfile(depth=10)
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
@@ -45,7 +47,19 @@ class ControllerServer(LifecycleNode):
         self.got_twist_package_ = False
         self.encoder_flag_lock_ = threading.Lock()
         self.got_encoder_package_ = False
+        self.imu_flag_lock_ = threading.Lock()
+        self.got_imu_package_ = False
+        self.lidar_flag_lock_ = threading.Lock()
+        self.got_lidar_package_ = False
+        self.temp_flag_lock_ = threading.Lock()
+        self.got_temp_package_ = False
+        self.timing_lock_ = threading.Lock()
+        self.msgs_began_ = False
+        self.got_transformation_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
+        # self.transformation_: TransformStamped = None
+
+        # Subscription parameters
         self.covariance_fill_ = np.zeros((36,))
         self.cmd_vel_header_stamp_ = None
         self.cmd_vel_header_frame_id_ = None
@@ -53,9 +67,24 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_angular_ = None
         self.motor_velocity_header_stamp_ = None
         self.motor_velocity_header_frame_id_ = None
+        self.motor_velocity_name_ = None
         self.motor_velocity_encoders_ = None
-        self.joint_state_left_wheel_ = 0.0
-        self.joint_state_right_wheel_ = 0.0
+
+        # Temporary parameters
+        self.joint_state_left_wheel_ = (
+            0.0  # temporary since this will be gotten by the encoder msgs
+        )
+        self.joint_state_right_wheel_ = (
+            0.0  # temporary since this will be gotten by the encoder msgs
+        )
+
+        # ROS 2 parameters
+        self.declare_parameter("wheels_separation", 0.0)
+        self.wheels_separation__ = self.get_parameter("wheels_separation").value
+        self.declare_parameter("wheel_radius", 0.0)
+        self.wheel_radius__ = self.get_parameter("wheel_radius").value
+        self.declare_parameter("transform_rate", 10.0)
+        self.transform_rate__ = self.get_parameter("transform_rate").value
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
@@ -91,7 +120,28 @@ class ControllerServer(LifecycleNode):
             TwistStamped, "cmd_vel", self.cmd_vel_subscription, self.qos_profile_
         )
         self.uros_encoder_state_subscriber = self.create_subscription(
-            MotorVels, "encoder", self.uros_encoder_subscription, self.qos_profile_
+            JointState,
+            "micro_encoder",
+            self.uros_encoder_subscription,
+            self.qos_profile_,
+        )
+        self.uros_lidar_subscriber = self.create_subscription(
+            LaserScan, "micro_laser", self.uros_laser_subscription, self.qos_profile_
+        )
+        self.uros_imu_subscriber = self.create_subscription(
+            Imu, "micro_imu", self.uros_imu_subscription, self.qos_profile_
+        )
+        self.uros_temp_subscriber = self.create_subscription(
+            Temperature,
+            "micro_temperature",
+            self.uros_temp_subscription,
+            self.qos_profile_,
+        )
+        # self.time_rate = self.create_timer(
+        #     (1.0 / self.transform_rate__), self.timing_function
+        # )
+        self.get_logger().warn(
+            f"\nActivated successfully with params:\nWheel Separation: {self.wheels_separation__}\nWheel Radius: {self.wheel_radius__}\nTransform Rate: {self.transform_rate__}"
         )
         self.server_activated_ = True
         return super().on_activate(state)
@@ -116,6 +166,10 @@ class ControllerServer(LifecycleNode):
         self.destroy_publisher(self.joint_state_publisher_)
         self.destroy_subscription(self.cmd_vel_subscriber)
         self.destroy_subscription(self.uros_encoder_state_subscriber)
+        self.destroy_subscription(self.uros_lidar_subscriber)
+        self.destroy_subscription(self.uros_imu_subscriber)
+        self.destroy_subscription(self.uros_temp_subscriber)
+        # self.time_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -127,6 +181,10 @@ class ControllerServer(LifecycleNode):
         self.destroy_publisher(self.joint_state_publisher_)
         self.destroy_subscription(self.cmd_vel_subscriber)
         self.destroy_subscription(self.uros_encoder_state_subscriber)
+        self.destroy_subscription(self.uros_lidar_subscriber)
+        self.destroy_subscription(self.uros_imu_subscriber)
+        self.destroy_subscription(self.uros_temp_subscriber)
+        # self.time_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -140,6 +198,10 @@ class ControllerServer(LifecycleNode):
         self.destroy_publisher(self.joint_state_publisher_)
         self.destroy_subscription(self.cmd_vel_subscriber)
         self.destroy_subscription(self.uros_encoder_state_subscriber)
+        self.destroy_subscription(self.uros_lidar_subscriber)
+        self.destroy_subscription(self.uros_imu_subscriber)
+        self.destroy_subscription(self.uros_temp_subscriber)
+        # self.time_rate.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -198,17 +260,18 @@ class ControllerServer(LifecycleNode):
         odom_trans.child_frame_id = "base_footprint"
 
         twist_msg = TwistStamped()
-        twist_msg.header.frame_id = f"{self.lf_node_name_}/cmd_vel"
 
         odom_msg = Odometry()
         odom_msg.header.frame_id = "odom"
         odom_msg.child_frame_id = "base_footprint"
 
-        starting_time = self.get_clock().now()
+        count_starting = 0
+
         # Odometry starting point
         x = 0.0
         y = 0.0
         th = 0.0
+        timeout_locks = float(1 / 100)
 
         while rclpy.ok():
             if not goal_handle.is_active:
@@ -219,79 +282,135 @@ class ControllerServer(LifecycleNode):
                 result.result_msg = "Goal was cancel requested"
                 return result
 
-            with self.cmd_flag_lock_:
-                acquired = self.encoder_flag_lock_.acquire(timeout=1 / 15)
-                if acquired:
+            if self.msgs_began_ and count_starting < 1:
+                count_starting += 1
+                starting_time = self.get_clock().now()
+
+            with self.encoder_flag_lock_:
+                acquired_cmd = self.cmd_flag_lock_.acquire(timeout=timeout_locks)
+                acquired_imu = self.imu_flag_lock_.acquire(timeout=timeout_locks)
+                acquired_lidar = self.lidar_flag_lock_.acquire(timeout=timeout_locks)
+                acquired_temp = self.temp_flag_lock_.acquire(timeout=timeout_locks)
+
+                if acquired_cmd and acquired_imu and acquired_lidar and acquired_temp:
                     try:
                         if (
                             request == "transform"
-                            and self.got_twist_package_
                             and self.got_encoder_package_
+                            and self.got_twist_package_
+                            and self.got_imu_package_
+                            and self.got_lidar_package_
+                            and self.got_temp_package_
                         ):
-                            self.got_twist_package_ = False
-                            self.got_encoder_package_ = False
+                            if self.msgs_began_:
+                                current_time = self.get_clock().now()
+                                dt = current_time - starting_time
+                                dt = dt.to_msg().sec + dt.to_msg().nanosec / 1e9
 
-                            vx = self.cmd_vel_linear_.x
-                            vy = 0.0
-                            vth = self.cmd_vel_angular_.z
+                                if dt > 0:
+                                    twist_msg.header.stamp = current_time.to_msg()
+                                    twist_msg.header.frame_id = (
+                                        self.cmd_vel_header_frame_id_
+                                    )
+                                    twist_msg.twist.linear = self.cmd_vel_linear_
+                                    twist_msg.twist.angular = self.cmd_vel_angular_
 
-                            current_time = self.get_clock().now()
+                                    right_motor_vel, left_motor_vel = (
+                                        self.motor_velocity_encoders_
+                                    )
 
-                            dt = (current_time - starting_time).to_msg()
-                            dt = float(dt.sec + (dt.nanosec / 1e9))
-                            delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
-                            delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
-                            delta_th = float(vth * dt)
+                                    vx = (right_motor_vel + left_motor_vel) / 2
+                                    vy = 0.0
+                                    vth = (
+                                        right_motor_vel - left_motor_vel
+                                    ) / self.wheels_separation__
 
-                            x += delta_x
-                            y += delta_y
-                            th += delta_th
+                                    delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
+                                    delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
+                                    delta_th = float(vth * dt)
 
-                            self.joint_state_left_wheel_ += x
-                            self.joint_state_right_wheel_ += x
+                                    x += delta_x
+                                    y += delta_y
+                                    th += delta_th
 
-                            (
-                                orientation.x,
-                                orientation.y,
-                                orientation.z,
-                                orientation.w,
-                            ) = tf_transformations.quaternion_from_euler(0.0, 0.0, th)
+                                    if x >= 1.0:
+                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th}"
+                                        return result
 
-                            feedback.process = f"\n - Seconds elapsed: {dt}\n x: {x}\n y: {y}\n th: {th} \
-                                \n - Velocities:\n x: {vx}\n y: {vy}\n theta: {vth} \
-                                \n - Variations:\n delta_x: {delta_x}\n delta_y: {delta_y}\n delta_theta: {delta_th}"
-                            goal_handle.publish_feedback(feedback)
+                                    self.joint_state_left_wheel_ += x
+                                    self.joint_state_right_wheel_ += x
 
-                            joint_state.header.stamp = current_time.to_msg()
-                            joint_state.position = [
-                                self.joint_state_left_wheel_,
-                                self.joint_state_right_wheel_,
-                            ]
+                                    (
+                                        orientation.x,
+                                        orientation.y,
+                                        orientation.z,
+                                        orientation.w,
+                                    ) = tf_transformations.quaternion_from_euler(
+                                        0.0, 0.0, th
+                                    )
 
-                            odom_msg.header.stamp = current_time.to_msg()
-                            odom_msg.pose.pose.position.x = x
-                            odom_msg.pose.pose.position.y = y
-                            odom_msg.pose.pose.position.z = 0.0
-                            odom_msg.twist.twist.linear = self.cmd_vel_linear_
-                            odom_msg.twist.twist.angular = self.cmd_vel_angular_
-                            odom_msg.pose.pose.orientation = orientation
+                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                    goal_handle.publish_feedback(feedback)
 
-                            odom_trans.header.stamp = current_time.to_msg()
-                            odom_trans.transform.translation.x = x
-                            odom_trans.transform.translation.y = y
-                            odom_trans.transform.translation.z = 0.0
-                            odom_trans.transform.rotation = orientation
+                                    joint_state.header.stamp = current_time.to_msg()
+                                    joint_state.position = [
+                                        self.joint_state_left_wheel_,
+                                        self.joint_state_right_wheel_,
+                                    ]
 
-                            # self.send_cmd_vel_back_.publish(twist_msg)
-                            self.odom_publisher_.publish(odom_msg)
-                            self.joint_state_publisher_.publish(joint_state)
-                            self.joint_state_broadcaster_.sendTransform(odom_trans)
+                                    odom_msg.header.stamp = current_time.to_msg()
+                                    odom_msg.pose.pose.position.x = x
+                                    odom_msg.pose.pose.position.y = y
+                                    odom_msg.pose.pose.position.z = 0.0
+                                    odom_msg.twist.twist.linear = self.cmd_vel_linear_
+                                    odom_msg.twist.twist.angular = self.cmd_vel_angular_
+                                    odom_msg.pose.pose.orientation = orientation
+
+                                    odom_trans.header.stamp = current_time.to_msg()
+                                    odom_trans.transform.translation.x = x
+                                    odom_trans.transform.translation.y = y
+                                    odom_trans.transform.translation.z = 0.0
+                                    odom_trans.transform.rotation = orientation
+
+                                    self.send_cmd_vel_back_.publish(twist_msg)
+                                    self.odom_publisher_.publish(odom_msg)
+                                    self.joint_state_publisher_.publish(joint_state)
+                                    self.joint_state_broadcaster_.sendTransform(
+                                        odom_trans
+                                    )
+
+                                    starting_time = current_time
+
+                                    self.got_encoder_package_ = False
+                                    self.got_twist_package_ = False
+                                    self.got_imu_package_ = False
+                                    self.got_lidar_package_ = False
+                                    self.got_temp_package_ = False
+                            else:
+                                self.msgs_began_ = True
+                                self.got_encoder_package_ = False
+                                self.got_twist_package_ = False
+                                self.got_imu_package_ = False
+                                self.got_lidar_package_ = False
+                                self.got_temp_package_ = False
+
                     finally:
-                        self.encoder_flag_lock_.release()
+                        self.cmd_flag_lock_.release()
+                        self.imu_flag_lock_.release()
+                        self.lidar_flag_lock_.release()
+                        self.temp_flag_lock_.release()
                 else:
-                    self.get_logger().error(
-                        "Encoder State flag wasn't acquired properly."
-                    )
+                    self.get_logger().error("Some flags timed-out.")
+                    # if self.cmd_flag_lock_.locked:
+                    #     self.cmd_flag_lock_.release()
+                    # if self.imu_flag_lock_.locked:
+                    #     self.imu_flag_lock_.release()
+                    # if self.lidar_flag_lock_.locked:
+                    #     self.lidar_flag_lock_.release()
+                    # if self.temp_flag_lock_.locked:
+                    #     self.temp_flag_lock_.release()
+                    # else:
+                    #     pass
 
             if request == "empty" or request is None or request == "":
                 time.sleep(1.0)
@@ -315,17 +434,49 @@ class ControllerServer(LifecycleNode):
         with self.cmd_flag_lock_:
             self.got_twist_package_ = True
 
-    def uros_encoder_subscription(self, encoder_msgs: MotorVels):
-        self.motor_velocity_header_stamp_ = encoder_msgs.header.stamp
-        self.motor_velocity_header_frame_id_ = encoder_msgs.header.frame_id
-        self.motor_velocity_encoders_ = encoder_msgs.motor_vel
+    def uros_encoder_subscription(self, motor_vels: JointState):
+        self.motor_velocity_header_stamp_ = motor_vels.header.stamp
+        self.motor_velocity_header_frame_id_ = motor_vels.header.frame_id
+        self.motor_velocity_name_ = motor_vels.name
+        self.motor_velocity_encoders_ = motor_vels.velocity
         with self.encoder_flag_lock_:
             self.got_encoder_package_ = True
 
-    def encoder_calc(self, time, left_encoder, right_encoder):
-        pass
+    def uros_laser_subscription(self, laser_msgs: LaserScan):
+        with self.lidar_flag_lock_:
+            self.got_lidar_package_ = True
+
+    def uros_imu_subscription(self, imu_msgs: Imu):
+        with self.imu_flag_lock_:
+            self.got_imu_package_ = True
+
+    def uros_temp_subscription(self, temp_msgs: Temperature):
+        with self.temp_flag_lock_:
+            self.got_temp_package_ = True
+
+    # def timing_function(self):
+    #     if self.transformation_ is not None:
+    #         self.joint_state_broadcaster_.sendTransform(self.transformation_)
+    #         self.got_transformation_ = False
 
     ############################### YET TO BE IMPLEMENTED ###############################
+
+    # def timeout_subscription():
+    #     with self.goal_lock_:
+    #         # Set goal_handle as class attribute so it can be used outside of this callback
+    #         self.goal_handle_ = goal_handle
+    #     sub_time_out += 1
+    #     if sub_time_out == 30:
+    #         feedback.process = "Subscription timed out. Aborting current goal."
+    #         goal_handle.publish_feedback(feedback)
+    #         result.result_msg = "Goal finished due to subscription timeout"
+    #         sub_time_out = 0
+    #         starting_time = self.get_clock().now()
+    #         x = 0.0
+    #         y = 0.0
+    #         th = 0.0
+    #         dt = 0.0
+    #         return result
 
     # def handle_accepted_callback(self, goal_handle: ServerGoalHandle):
     #     # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw

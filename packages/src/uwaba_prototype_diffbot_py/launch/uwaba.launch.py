@@ -1,20 +1,42 @@
 #!/usr/bin/env python3
 import launch
-import time
-from launch.substitutions import Command, LaunchConfiguration
-from launch.actions import RegisterEventHandler
+from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
+from launch.actions import RegisterEventHandler, DeclareLaunchArgument, ExecuteProcess
 from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-import os
+from os.path import join
 
 
 def generate_launch_description():
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
     )
-    default_model_path = os.path.join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
-    default_rviz_config_path = os.path.join(pkg_share, "rviz/urdf_config_wodom.rviz")
+
+    default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
+    default_rviz_config_path = join(pkg_share, "rviz/urdf_config_wodom.rviz")
+
+    client_parameters = PathJoinSubstitution(
+        [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "client_params.yaml"]
+    )
+
+    server_parameters = PathJoinSubstitution(
+        [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "server_params.yaml"]
+    )
+
+    client_node = Node(
+        package="uwaba_prototype_diffbot_py",
+        executable="uwaba_controller_manager",
+        name="uwaba_controller_manager_node",
+        parameters=[client_parameters],
+    )
+
+    server_node = Node(
+        package="uwaba_prototype_diffbot_py",
+        executable="uwaba_controller_server",
+        name="uwaba_controller_server_node",
+        parameters=[server_parameters],
+    )
 
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
@@ -23,6 +45,7 @@ def generate_launch_description():
             {"robot_description": Command(["xacro ", LaunchConfiguration("model")])}
         ],
     )
+
     joint_state_publisher_node = Node(
         package="joint_state_publisher",
         executable="joint_state_publisher",
@@ -36,22 +59,16 @@ def generate_launch_description():
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
 
-    server_node = Node(
-        package="uwaba_prototype_diffbot_py",
-        executable="uwaba_controller_server",
-        name="uwaba_controller_server_node",
-    )
-
-    client_node = Node(
-        package="uwaba_prototype_diffbot_py",
-        executable="uwaba_controller_manager",
-        name="uwaba_controller_manager_node",
-        parameters=[
-            {"goal_request": "transform"},
-            {"child_frame_id": "uwaba_prototype_robot"},
-            {"managed_node_name": "uwaba_controller_server_node"},
-        ],
-    )
+    # client_node = Node(
+    #     package="uwaba_prototype_diffbot_py",
+    #     executable="uwaba_controller_manager",
+    #     name="uwaba_controller_manager_node",
+    #     parameters=[
+    #         {"goal_request": "transform"},
+    #         {"child_frame_id": "uwaba_prototype_robot"},
+    #         {"managed_node_name": "uwaba_controller_server_node"},
+    #     ],
+    # )
 
     # robot_localization_node = Node(
     #      package='robot_localization',
@@ -67,15 +84,6 @@ def generate_launch_description():
             on_exit=[rviz_node],
         )
     )
-
-    # delay_client_after_server = (
-    #     RegisterEventHandler(
-    #         event_handler=OnProcessExit(
-    #             target_action=server_node,
-    #             on_exit=[client_node],
-    #         )
-    #     )
-    # )
 
     return launch.LaunchDescription(
         [

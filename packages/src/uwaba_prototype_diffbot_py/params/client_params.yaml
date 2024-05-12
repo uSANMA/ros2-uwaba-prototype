@@ -1,0 +1,5 @@
+uwaba_controller_manager_node:
+  ros__parameters:
+    goal_request: "transform"
+    child_frame_id: "uwaba_prototype_action"
+    managed_node_name: "uwaba_controller_server_node"
