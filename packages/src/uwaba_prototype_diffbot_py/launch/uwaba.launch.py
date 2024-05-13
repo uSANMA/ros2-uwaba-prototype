@@ -16,26 +16,22 @@ def generate_launch_description():
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
     default_rviz_config_path = join(pkg_share, "rviz/urdf_config_wodom.rviz")
 
-    client_parameters = PathJoinSubstitution(
-        [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "client_params.yaml"]
-    )
-
-    server_parameters = PathJoinSubstitution(
-        [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "server_params.yaml"]
+    parameters = PathJoinSubstitution(
+        [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "params.yaml"]
     )
 
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
         executable="uwaba_controller_manager",
         name="uwaba_controller_manager_node",
-        parameters=[client_parameters],
+        parameters=[parameters],
     )
 
     server_node = Node(
         package="uwaba_prototype_diffbot_py",
         executable="uwaba_controller_server",
         name="uwaba_controller_server_node",
-        parameters=[server_parameters],
+        parameters=[parameters],
     )
 
     robot_state_publisher_node = Node(
