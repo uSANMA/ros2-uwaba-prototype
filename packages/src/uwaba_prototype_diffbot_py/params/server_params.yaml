@@ -2,4 +2,14 @@ uwaba_controller_server_node:
   ros__parameters:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
-    transform_rate: 10.0
+    transform_rate: 100.0
+    goal_position_x: 1.0
+    tune_velocity: 1.0
+    thread_timing: 30.0             # Lowest pub frequency in the system
+    thread_timeout_tune: 2.0        # Margin for thread acquired timeout's timing
+    odom_topic: "odom"
+    joint_states_topic: "joint_states"
+    uros_encoder_topic: "micro_encoders"
+    uros_imu_topic: "micro_imu"
+    uros_temperature_topic: "micro_temp"
+    uros_lidar_topic: "micro_laser"

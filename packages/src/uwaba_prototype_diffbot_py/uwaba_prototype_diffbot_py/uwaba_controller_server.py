@@ -54,10 +54,12 @@ class ControllerServer(LifecycleNode):
         self.temp_flag_lock_ = threading.Lock()
         self.got_temp_package_ = False
         self.timing_lock_ = threading.Lock()
+        self.got_timing_ = False
         self.msgs_began_ = False
         self.got_transformation_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
-        self.g_vel_ = 1.0
+        self.joint_state_left_wheel_ = 0.0
+        self.joint_state_right_wheel_ = 0.0
 
         # Subscription parameters
         self.covariance_fill_ = np.zeros((36,))
@@ -70,22 +72,36 @@ class ControllerServer(LifecycleNode):
         self.motor_velocity_name_ = None
         self.motor_velocity_encoders_ = None
 
-        # Temporary parameters
-        self.joint_state_left_wheel_ = (
-            0.0  # temporary since this will be gotten by the encoder msgs
-        )
-        self.joint_state_right_wheel_ = (
-            0.0  # temporary since this will be gotten by the encoder msgs
-        )
-        self.goal_pos_ = 1.0
-
         # ROS 2 parameters
         self.declare_parameter("wheels_separation", 0.0)
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
         self.declare_parameter("wheel_radius", 0.0)
         self.wheel_radius__ = self.get_parameter("wheel_radius").value
-        self.declare_parameter("transform_rate", 10.0)
+        self.declare_parameter("transform_rate", 0.0)
         self.transform_rate__ = self.get_parameter("transform_rate").value
+        self.declare_parameter("tune_velocity", 1.0)
+        self.tune_vel__ = self.get_parameter("tune_velocity").value
+        self.declare_parameter("goal_position_x", 0.0)
+        self.goal_pos__ = self.get_parameter("goal_position_x").value
+        self.declare_parameter("thread_timing", 30.0)
+        self.thread_timing__ = self.get_parameter("thread_timing").value
+        self.declare_parameter("thread_timeout_tune", 2.0)
+        self.carlinhos_pro__ = self.get_parameter("thread_timeout_tune").value
+
+        self.declare_parameter("uros_encoder_topic", "micro_encoders")
+        self.uros_encoder_topic__ = self.get_parameter("uros_encoder_topic").value
+        self.declare_parameter("uros_imu_topic", "micro_imu")
+        self.uros_imu_topic__ = self.get_parameter("uros_imu_topic").value
+        self.declare_parameter("uros_temperature_topic", "micro_temp")
+        self.uros_temperature_topic__ = self.get_parameter(
+            "uros_temperature_topic"
+        ).value
+        self.declare_parameter("uros_lidar_topic", "micro_laser")
+        self.uros_lidar_topic__ = self.get_parameter("uros_lidar_topic").value
+        self.declare_parameter("odom_topic", "odom")
+        self.odom_topic__ = self.get_parameter("odom_topic").value
+        self.declare_parameter("joint_states_topic", "joint_states")
+        self.joint_state_topic__ = self.get_parameter("joint_states_topic").value
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
@@ -105,10 +121,10 @@ class ControllerServer(LifecycleNode):
         )
         # END
         self.odom_publisher_ = self.create_publisher(
-            Odometry, f"odom", self.qos_profile_
+            Odometry, f"{self.odom_topic__}", self.qos_profile_
         )
         self.joint_state_publisher_ = self.create_publisher(
-            JointState, f"joint_states", self.qos_profile_
+            JointState, f"{self.joint_state_topic__}", self.qos_profile_
         )
         self.get_logger().info("Controller action server has started.")
         # Check whether the frame_id from the wheels of the diffbot are connected and ready to send msgs
@@ -138,9 +154,9 @@ class ControllerServer(LifecycleNode):
             self.uros_temp_subscription,
             self.qos_profile_,
         )
-        # self.time_rate = self.create_timer(
-        #     (1.0 / self.transform_rate__), self.timing_function
-        # )
+        self.time_rate = self.create_timer(
+            (1.0 / self.transform_rate__), self.timing_function
+        )
         self.get_logger().warn(
             f"\nActivated successfully with params:\nWheel Separation: {self.wheels_separation__}\nWheel Radius: {self.wheel_radius__}\nTransform Rate: {self.transform_rate__}"
         )
@@ -170,7 +186,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        # self.time_rate.destroy()
+        self.time_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -185,7 +201,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        # self.time_rate.destroy()
+        self.time_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -202,7 +218,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        # self.time_rate.destroy()
+        self.time_rate.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -272,7 +288,7 @@ class ControllerServer(LifecycleNode):
         x = 0.0
         y = 0.0
         th = 0.0
-        timeout_locks = float(1 / 100)
+        timeout_locks = float(self.carlinhos_pro__ * float(1 / self.thread_timing__))
 
         while rclpy.ok():
             if not goal_handle.is_active:
@@ -287,13 +303,22 @@ class ControllerServer(LifecycleNode):
                 count_starting += 1
                 starting_time = self.get_clock().now()
 
-            with self.encoder_flag_lock_:
+            with self.timing_lock_:
                 acquired_cmd = self.cmd_flag_lock_.acquire(timeout=timeout_locks)
+                acquired_encoder = self.encoder_flag_lock_.acquire(
+                    timeout=timeout_locks
+                )
                 acquired_imu = self.imu_flag_lock_.acquire(timeout=timeout_locks)
                 acquired_lidar = self.lidar_flag_lock_.acquire(timeout=timeout_locks)
                 acquired_temp = self.temp_flag_lock_.acquire(timeout=timeout_locks)
 
-                if acquired_cmd and acquired_imu and acquired_lidar and acquired_temp:
+                if (
+                    acquired_cmd
+                    and acquired_imu
+                    and acquired_lidar
+                    and acquired_temp
+                    and acquired_encoder
+                ):
                     try:
                         if (
                             request == "transform"
@@ -309,21 +334,17 @@ class ControllerServer(LifecycleNode):
                                 dt = dt.to_msg().sec + dt.to_msg().nanosec / 1e9
 
                                 if dt > 0:
-                                    twist_msg.header.stamp = current_time.to_msg()
-                                    twist_msg.header.frame_id = (
-                                        self.cmd_vel_header_frame_id_
-                                    )
 
                                     right_motor_vel, left_motor_vel = (
                                         self.motor_velocity_encoders_
                                     )
 
-                                    vx = self.g_vel_ * (
+                                    vx = self.tune_vel__ * (
                                         (right_motor_vel + left_motor_vel) / 2
                                     )
                                     vy = 0.0
                                     vth = (
-                                        self.g_vel_
+                                        self.tune_vel__
                                         * (right_motor_vel - left_motor_vel)
                                         / self.wheels_separation__
                                     )
@@ -335,28 +356,20 @@ class ControllerServer(LifecycleNode):
                                     x += delta_x
                                     y += delta_y
                                     th += delta_th
-                                    if self.goal_pos_ > 0:
+
+                                    if self.goal_pos__ > 0:
                                         if (
-                                            x < self.goal_pos_
-                                            and x >= (0.45 * self.goal_pos_)
-                                            and x <= (0.85 * self.goal_pos_)
+                                            x < self.goal_pos__
+                                            and x >= (0.45 * self.goal_pos__)
+                                            and x <= (0.85 * self.goal_pos__)
                                         ):
                                             self.g_vel_ = 0.45
-                                        elif x < self.goal_pos_ and x >= (
-                                            0.85 * self.goal_pos_
+                                        elif x < self.goal_pos__ and x >= (
+                                            0.85 * self.goal_pos__
                                         ):
-                                            self.g_vel_ = 0.15
+                                            self.tune_vel__ = 0.15
                                         else:
-                                            self.g_vel_ = 1.0
-
-                                    if x >= self.goal_pos_:
-                                        self.g_vel_ = 0.0
-                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th}"
-                                        goal_handle.succeed()
-                                        return result
-
-                                    # self.joint_state_left_wheel_ = x
-                                    # self.joint_state_right_wheel_ = x
+                                            self.tune_vel__ = 1.0
 
                                     (
                                         orientation.x,
@@ -392,12 +405,28 @@ class ControllerServer(LifecycleNode):
                                     odom_trans.transform.translation.z = 0.0
                                     odom_trans.transform.rotation = orientation
 
+                                    twist_msg.header.stamp = current_time.to_msg()
+                                    twist_msg.header.frame_id = (
+                                        self.cmd_vel_header_frame_id_
+                                    )
                                     twist_msg.twist.linear.x = vx
                                     twist_msg.twist.linear.y = 0.0
                                     twist_msg.twist.linear.z = 0.0
                                     twist_msg.twist.angular.x = 0.0
                                     twist_msg.twist.angular.y = 0.0
                                     twist_msg.twist.angular.z = vth
+
+                                    if x >= self.goal_pos__:
+                                        self.tune_vel__ = 0.0
+                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th}"
+                                        self.send_cmd_vel_back_.publish(twist_msg)
+                                        self.odom_publisher_.publish(odom_msg)
+                                        self.joint_state_publisher_.publish(joint_state)
+                                        self.joint_state_broadcaster_.sendTransform(
+                                            odom_trans
+                                        )
+                                        goal_handle.succeed()
+                                        return result
 
                                     self.send_cmd_vel_back_.publish(twist_msg)
                                     self.odom_publisher_.publish(odom_msg)
@@ -408,6 +437,7 @@ class ControllerServer(LifecycleNode):
 
                                     starting_time = current_time
 
+                                    self.got_timing_ = False
                                     self.got_encoder_package_ = False
                                     self.got_twist_package_ = False
                                     self.got_imu_package_ = False
@@ -415,6 +445,7 @@ class ControllerServer(LifecycleNode):
                                     self.got_temp_package_ = False
                             else:
                                 self.msgs_began_ = True
+                                self.got_timing_ = False
                                 self.got_encoder_package_ = False
                                 self.got_twist_package_ = False
                                 self.got_imu_package_ = False
@@ -428,16 +459,6 @@ class ControllerServer(LifecycleNode):
                         self.temp_flag_lock_.release()
                 else:
                     self.get_logger().error("Some flags timed-out.")
-                    # if self.cmd_flag_lock_.locked:
-                    #     self.cmd_flag_lock_.release()
-                    # if self.imu_flag_lock_.locked:
-                    #     self.imu_flag_lock_.release()
-                    # if self.lidar_flag_lock_.locked:
-                    #     self.lidar_flag_lock_.release()
-                    # if self.temp_flag_lock_.locked:
-                    #     self.temp_flag_lock_.release()
-                    # else:
-                    #     pass
 
             if request == "empty" or request is None or request == "":
                 time.sleep(1.0)
@@ -481,10 +502,9 @@ class ControllerServer(LifecycleNode):
         with self.temp_flag_lock_:
             self.got_temp_package_ = True
 
-    # def timing_function(self):
-    #     if self.transformation_ is not None:
-    #         self.joint_state_broadcaster_.sendTransform(self.transformation_)
-    #         self.got_transformation_ = False
+    def timing_function(self):
+        with self.timing_lock_:
+            self.got_timing_: True
 
     ############################### YET TO BE IMPLEMENTED ###############################
 
