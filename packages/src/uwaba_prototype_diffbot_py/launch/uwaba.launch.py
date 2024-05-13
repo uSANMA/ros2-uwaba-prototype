@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import launch
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
-from launch.actions import RegisterEventHandler, DeclareLaunchArgument, ExecuteProcess
+from launch.actions import RegisterEventHandler
 from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -58,17 +58,6 @@ def generate_launch_description():
         output="screen",
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
-
-    # client_node = Node(
-    #     package="uwaba_prototype_diffbot_py",
-    #     executable="uwaba_controller_manager",
-    #     name="uwaba_controller_manager_node",
-    #     parameters=[
-    #         {"goal_request": "transform"},
-    #         {"child_frame_id": "uwaba_prototype_robot"},
-    #         {"managed_node_name": "uwaba_controller_server_node"},
-    #     ],
-    # )
 
     # robot_localization_node = Node(
     #      package='robot_localization',

@@ -57,7 +57,7 @@ class ControllerServer(LifecycleNode):
         self.msgs_began_ = False
         self.got_transformation_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
-        # self.transformation_: TransformStamped = None
+        self.g_vel_ = 1.0
 
         # Subscription parameters
         self.covariance_fill_ = np.zeros((36,))
@@ -77,6 +77,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_right_wheel_ = (
             0.0  # temporary since this will be gotten by the encoder msgs
         )
+        self.goal_pos_ = 1.0
 
         # ROS 2 parameters
         self.declare_parameter("wheels_separation", 0.0)
@@ -312,18 +313,20 @@ class ControllerServer(LifecycleNode):
                                     twist_msg.header.frame_id = (
                                         self.cmd_vel_header_frame_id_
                                     )
-                                    twist_msg.twist.linear = self.cmd_vel_linear_
-                                    twist_msg.twist.angular = self.cmd_vel_angular_
 
                                     right_motor_vel, left_motor_vel = (
                                         self.motor_velocity_encoders_
                                     )
 
-                                    vx = (right_motor_vel + left_motor_vel) / 2
+                                    vx = self.g_vel_ * (
+                                        (right_motor_vel + left_motor_vel) / 2
+                                    )
                                     vy = 0.0
                                     vth = (
-                                        right_motor_vel - left_motor_vel
-                                    ) / self.wheels_separation__
+                                        self.g_vel_
+                                        * (right_motor_vel - left_motor_vel)
+                                        / self.wheels_separation__
+                                    )
 
                                     delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
                                     delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
@@ -332,13 +335,28 @@ class ControllerServer(LifecycleNode):
                                     x += delta_x
                                     y += delta_y
                                     th += delta_th
+                                    if self.goal_pos_ > 0:
+                                        if (
+                                            x < self.goal_pos_
+                                            and x >= (0.45 * self.goal_pos_)
+                                            and x <= (0.85 * self.goal_pos_)
+                                        ):
+                                            self.g_vel_ = 0.45
+                                        elif x < self.goal_pos_ and x >= (
+                                            0.85 * self.goal_pos_
+                                        ):
+                                            self.g_vel_ = 0.15
+                                        else:
+                                            self.g_vel_ = 1.0
 
-                                    if x >= 1.0:
+                                    if x >= self.goal_pos_:
+                                        self.g_vel_ = 0.0
                                         result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th}"
+                                        goal_handle.succeed()
                                         return result
 
-                                    self.joint_state_left_wheel_ += x
-                                    self.joint_state_right_wheel_ += x
+                                    # self.joint_state_left_wheel_ = x
+                                    # self.joint_state_right_wheel_ = x
 
                                     (
                                         orientation.x,
@@ -353,17 +371,19 @@ class ControllerServer(LifecycleNode):
                                     goal_handle.publish_feedback(feedback)
 
                                     joint_state.header.stamp = current_time.to_msg()
-                                    joint_state.position = [
-                                        self.joint_state_left_wheel_,
-                                        self.joint_state_right_wheel_,
-                                    ]
+                                    joint_state.position = [x, x]
+                                    joint_state.velocity = [vx, vx]
 
                                     odom_msg.header.stamp = current_time.to_msg()
                                     odom_msg.pose.pose.position.x = x
                                     odom_msg.pose.pose.position.y = y
                                     odom_msg.pose.pose.position.z = 0.0
-                                    odom_msg.twist.twist.linear = self.cmd_vel_linear_
-                                    odom_msg.twist.twist.angular = self.cmd_vel_angular_
+                                    odom_msg.twist.twist.linear.x = vx
+                                    odom_msg.twist.twist.linear.y = 0.0
+                                    odom_msg.twist.twist.linear.z = 0.0
+                                    odom_msg.twist.twist.angular.x = 0.0
+                                    odom_msg.twist.twist.angular.y = 0.0
+                                    odom_msg.twist.twist.angular.z = vth
                                     odom_msg.pose.pose.orientation = orientation
 
                                     odom_trans.header.stamp = current_time.to_msg()
@@ -371,6 +391,13 @@ class ControllerServer(LifecycleNode):
                                     odom_trans.transform.translation.y = y
                                     odom_trans.transform.translation.z = 0.0
                                     odom_trans.transform.rotation = orientation
+
+                                    twist_msg.twist.linear.x = vx
+                                    twist_msg.twist.linear.y = 0.0
+                                    twist_msg.twist.linear.z = 0.0
+                                    twist_msg.twist.angular.x = 0.0
+                                    twist_msg.twist.angular.y = 0.0
+                                    twist_msg.twist.angular.z = vth
 
                                     self.send_cmd_vel_back_.publish(twist_msg)
                                     self.odom_publisher_.publish(odom_msg)
