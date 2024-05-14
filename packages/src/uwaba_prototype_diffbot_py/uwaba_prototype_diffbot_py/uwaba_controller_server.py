@@ -29,7 +29,7 @@ from nav_msgs.msg import Odometry
 
 ###################################################################################################
 #                                                                                                 #
-# REMINDER FOR FINAL IMPLEMENTATION: Please remove the get_logger() to avoid delaying the process #
+# REMINDER FOR FINAL IMPLEMENTATION: Please remove all get_logger() to avoid delaying the process #
 #                                                                                                 #
 ###################################################################################################
 
@@ -56,6 +56,7 @@ class ControllerServer(LifecycleNode):
         self.timing_lock_ = threading.Lock()
         self.got_timing_ = None
         self.msgs_began_ = False
+        self.goal_arrived_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
@@ -86,6 +87,8 @@ class ControllerServer(LifecycleNode):
         self.thread_timing__ = self.get_parameter("thread_timing").value
         self.declare_parameter("thread_timeout_tune", 2.0)
         self.carlinhos_pro__ = self.get_parameter("thread_timeout_tune").value
+        self.declare_parameter("max_linear_velocity", 1.0)
+        self.max_linear_velocity__ = self.get_parameter("max_linear_velocity").value
 
         self.declare_parameter("uros_encoder_topic", "micro_encoders")
         self.uros_encoder_topic__ = self.get_parameter("uros_encoder_topic").value
@@ -116,11 +119,9 @@ class ControllerServer(LifecycleNode):
             execute_callback=self.execute_callback,
             callback_group=ReentrantCallbackGroup(),
         )
-        # BEGIN: This is a test publisher
         self.send_cmd_vel_back_ = self.create_publisher(
             TwistStamped, f"{self.lf_node_name_}/cmd_vel", self.qos_profile_
         )
-        # END
         self.odom_publisher_ = self.create_publisher(
             Odometry, f"{self.odom_topic__}", self.qos_profile_
         )
@@ -128,12 +129,10 @@ class ControllerServer(LifecycleNode):
             JointState, f"{self.joint_state_topic__}", self.qos_profile_
         )
         self.get_logger().info("Controller action server has started.")
-        # Check whether the frame_id from the wheels of the diffbot are connected and ready to send msgs
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on activate")  ## REMOVE WHEN DONE
-        # Here should be created the subscribers
         self.cmd_vel_subscriber = self.create_subscription(
             TwistStamped,
             f"{self.cmd_vel_topic__}",
@@ -176,8 +175,6 @@ class ControllerServer(LifecycleNode):
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on deactivate")  ## REMOVE WHEN DONE
         self.server_activated_ = False
-        # To make sure that the variable is not being accessed at the same time in two different threads
-        # is a best practice to lock the thread
         with self.goal_lock_:
             if self.goal_handle_ is not None and self.goal_handle_.is_active:
                 self.goal_handle_.abort()
@@ -236,9 +233,6 @@ class ControllerServer(LifecycleNode):
         if not self.server_activated_:
             self.get_logger().warn("Server not yet activated.")
             return GoalResponse.REJECT
-
-        # Validate goal request, again with locking the thread so the same
-        # variable is not being accessed at the same time
         with self.goal_lock_:
             # Policy: Goal preemption (must be after some goal are already valid thus preempting)
             if self.goal_handle_ is not None and self.goal_handle_.is_active:
@@ -257,16 +251,8 @@ class ControllerServer(LifecycleNode):
 
     def execute_callback(self, goal_handle: ServerGoalHandle) -> ControlActions:
         self.get_logger().info("Executing goal")
-        # Locking the variable so it doesn't bring issues whilst several threads are being
-        # used and prevent the variable to be used simultaneously by different threads
         with self.goal_lock_:
-            # Set goal_handle as class attribute so it can be used outside of this callback
             self.goal_handle_ = goal_handle
-
-        # Implement new interfaces for dealing with goals, response and feedbacks
-        # I need to aim more in a goal toward a movement rather than labeling the actions itself
-        # Also feedback should return the robot's position (last implementation since it will
-        # use odometry, joint states and cmd_vel)
 
         request = goal_handle.request.request
         self.get_logger().info(f"Request: {request}")
@@ -293,6 +279,7 @@ class ControllerServer(LifecycleNode):
         odom_msg.child_frame_id = "base_footprint"
 
         count_starting = 0
+        total_elapsed_time = 0.0
 
         # Odometry starting point
         x = 0.0
@@ -344,11 +331,15 @@ class ControllerServer(LifecycleNode):
                                 dt = current_time - starting_time
                                 dt = dt.to_msg().sec + dt.to_msg().nanosec / 1e9
 
-                                if dt > 0:
+                                right_motor_vel, left_motor_vel = (
+                                    self.motor_velocity_encoders_
+                                )
 
-                                    right_motor_vel, left_motor_vel = (
-                                        self.motor_velocity_encoders_
-                                    )
+                                if (
+                                    dt > 0
+                                    and right_motor_vel > 0.0
+                                    and left_motor_vel > 0.0
+                                ):
 
                                     vx = self.tune_vel__ * (
                                         (right_motor_vel + left_motor_vel) / 2
@@ -368,6 +359,7 @@ class ControllerServer(LifecycleNode):
                                     y += delta_y
                                     th += delta_th
 
+                                    # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
                                     if self.goal_pos__ > 0:
                                         if (
                                             x < self.goal_pos__
@@ -381,6 +373,7 @@ class ControllerServer(LifecycleNode):
                                             self.tune_vel__ = 0.15
                                         else:
                                             self.tune_vel__ = 1.0
+                                    # END
 
                                     (
                                         orientation.x,
@@ -390,9 +383,6 @@ class ControllerServer(LifecycleNode):
                                     ) = tf_transformations.quaternion_from_euler(
                                         0.0, 0.0, th
                                     )
-
-                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                                    goal_handle.publish_feedback(feedback)
 
                                     joint_state.header.stamp = current_time.to_msg()
                                     joint_state.position = [x, x]
@@ -428,8 +418,9 @@ class ControllerServer(LifecycleNode):
                                     twist_msg.twist.angular.z = vth
 
                                     if x >= self.goal_pos__:
+                                        self.goal_arrived_ = True
                                         self.tune_vel__ = 0.0
-                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th}"
+                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th} in {total_elapsed_time} seconds"
                                         twist_msg.twist.linear.x = 0.0
                                         twist_msg.twist.angular.z = 0.0
                                         odom_msg.twist.twist.linear.x = 0.0
@@ -440,9 +431,17 @@ class ControllerServer(LifecycleNode):
                                         self.joint_state_broadcaster_.sendTransform(
                                             odom_trans
                                         )
-                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                         goal_handle.publish_feedback(feedback)
                                         goal_handle.succeed()
+
+                                        self.got_timing_ = False
+                                        self.got_encoder_package_ = False
+                                        self.got_twist_package_ = False
+                                        self.got_imu_package_ = False
+                                        self.got_lidar_package_ = False
+                                        self.got_temp_package_ = False
+
                                         return result
 
                                     self.send_cmd_vel_back_.publish(twist_msg)
@@ -453,6 +452,12 @@ class ControllerServer(LifecycleNode):
                                     )
 
                                     starting_time = current_time
+                                    # total_elapsed_time += current_time.to_msg().sec + current_time.to_msg().nanosec/1e9
+                                    total_elapsed_time += dt
+                                    starting_time = current_time
+
+                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                    goal_handle.publish_feedback(feedback)
 
                                     self.got_timing_ = False
                                     self.got_encoder_package_ = False
@@ -460,6 +465,77 @@ class ControllerServer(LifecycleNode):
                                     self.got_imu_package_ = False
                                     self.got_lidar_package_ = False
                                     self.got_temp_package_ = False
+                                else:
+                                    if (
+                                        right_motor_vel == 0.0
+                                        and left_motor_vel == 0.0
+                                        and not self.goal_arrived_
+                                        or self.goal_arrived_ is None
+                                    ):
+                                        (
+                                            orientation.x,
+                                            orientation.y,
+                                            orientation.z,
+                                            orientation.w,
+                                        ) = tf_transformations.quaternion_from_euler(
+                                            0.0, 0.0, 0.0
+                                        )
+                                        twist_msg.twist.linear.x = (
+                                            self.max_linear_velocity__
+                                        )
+                                        joint_state.header.stamp = current_time.to_msg()
+                                        joint_state.position = [0.0, 0.0]
+                                        joint_state.velocity = [
+                                            self.max_linear_velocity__,
+                                            self.max_linear_velocity__,
+                                        ]
+
+                                        odom_msg.header.stamp = current_time.to_msg()
+                                        odom_msg.pose.pose.position.x = 0.0
+                                        odom_msg.pose.pose.position.y = 0.0
+                                        odom_msg.pose.pose.position.z = 0.0
+                                        odom_msg.twist.twist.linear.x = (
+                                            self.max_linear_velocity__
+                                        )
+                                        odom_msg.twist.twist.linear.y = 0.0
+                                        odom_msg.twist.twist.linear.z = 0.0
+                                        odom_msg.twist.twist.angular.x = 0.0
+                                        odom_msg.twist.twist.angular.y = 0.0
+                                        odom_msg.twist.twist.angular.z = 0.0
+                                        odom_msg.pose.pose.orientation = orientation
+
+                                        odom_trans.header.stamp = current_time.to_msg()
+                                        odom_trans.transform.translation.x = 0.0
+                                        odom_trans.transform.translation.y = 0.0
+                                        odom_trans.transform.translation.z = 0.0
+                                        odom_trans.transform.rotation = orientation
+
+                                        twist_msg.header.stamp = current_time.to_msg()
+                                        twist_msg.header.frame_id = (
+                                            self.cmd_vel_header_frame_id_
+                                        )
+                                        twist_msg.twist.linear.x = (
+                                            self.max_linear_velocity__
+                                        )
+                                        twist_msg.twist.linear.y = 0.0
+                                        twist_msg.twist.linear.z = 0.0
+                                        twist_msg.twist.angular.x = 0.0
+                                        twist_msg.twist.angular.y = 0.0
+                                        twist_msg.twist.angular.z = 0.0
+
+                                        self.send_cmd_vel_back_.publish(twist_msg)
+                                        self.odom_publisher_.publish(odom_msg)
+                                        self.joint_state_publisher_.publish(joint_state)
+                                        self.joint_state_broadcaster_.sendTransform(
+                                            odom_trans
+                                        )
+
+                                        self.got_timing_ = False
+                                        self.got_encoder_package_ = False
+                                        self.got_twist_package_ = False
+                                        self.got_imu_package_ = False
+                                        self.got_lidar_package_ = False
+                                        self.got_temp_package_ = False
                             else:
                                 self.msgs_began_ = True
                                 self.got_timing_ = False
