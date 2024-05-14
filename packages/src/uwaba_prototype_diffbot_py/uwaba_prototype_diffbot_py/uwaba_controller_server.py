@@ -371,10 +371,10 @@ class ControllerServer(LifecycleNode):
                                     if self.goal_pos__ > 0:
                                         if (
                                             x < self.goal_pos__
-                                            and x >= (0.45 * self.goal_pos__)
+                                            and x >= (0.65 * self.goal_pos__)
                                             and x <= (0.85 * self.goal_pos__)
                                         ):
-                                            self.tune_vel__ = 0.45
+                                            self.tune_vel__ = 0.35
                                         elif x < self.goal_pos__ and x >= (
                                             0.85 * self.goal_pos__
                                         ):
