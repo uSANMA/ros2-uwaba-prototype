@@ -338,7 +338,9 @@ class ControllerServer(LifecycleNode):
                                 if (
                                     dt > 0
                                     and right_motor_vel > 0.0
-                                    and left_motor_vel > 0.0
+                                    or left_motor_vel > 0.0
+                                    and not self.goal_arrived_
+                                    or self.goal_arrived_ is None
                                 ):
 
                                     vx = self.tune_vel__ * (
