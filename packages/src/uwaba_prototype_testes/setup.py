@@ -29,7 +29,7 @@ setup(
             "uros_std_msg_teste = uwaba_prototype_testes.uros_std_msg_teste:main",
             "uros_cmd_vel_teste = uwaba_prototype_testes.uros_cmd_vel_teste:main",
             "state_publisher = uwaba_prototype_testes.state_publisher:main",
-            "uros_joint_state_teste = uwaba_prototype_testes.uros_joint_state_teste:main",
+            "uros_emulator = uwaba_prototype_testes.uros_emulator:main",
             "timing_testes = uwaba_prototype_testes.timing_testes:main"
         ],
     },

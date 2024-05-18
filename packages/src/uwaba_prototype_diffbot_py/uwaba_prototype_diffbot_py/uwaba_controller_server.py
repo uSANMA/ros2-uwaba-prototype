@@ -60,6 +60,8 @@ class ControllerServer(LifecycleNode):
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
+        self.changed_velocity_flag_ = False
+        self.slow_down_inc_ = 1
 
         # Subscription parameters
         self.covariance_fill_ = np.zeros((36,))
@@ -342,16 +344,23 @@ class ControllerServer(LifecycleNode):
                                     and not self.goal_arrived_
                                     or self.goal_arrived_ is None
                                 ):
-
-                                    vx = self.tune_vel__ * (
-                                        (right_motor_vel + left_motor_vel) / 2
-                                    )
-                                    vy = 0.0
-                                    vth = (
-                                        self.tune_vel__
-                                        * (right_motor_vel - left_motor_vel)
-                                        / self.wheels_separation__
-                                    )
+                                    if self.changed_velocity_flag_:
+                                        vx = self.tune_vel__ * (
+                                            (right_motor_vel + left_motor_vel) / 2
+                                        )
+                                        vy = 0.0
+                                        vth = (
+                                            self.tune_vel__
+                                            * (right_motor_vel - left_motor_vel)
+                                            / self.wheels_separation__
+                                        )
+                                        self.changed_velocity_flag_ = False
+                                    else:
+                                        vx = (right_motor_vel + left_motor_vel) / 2
+                                        vy = 0.0
+                                        vth = (
+                                            right_motor_vel - left_motor_vel
+                                        ) / self.wheels_separation__
 
                                     delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
                                     delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
@@ -364,17 +373,18 @@ class ControllerServer(LifecycleNode):
                                     # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
                                     if self.goal_pos__ > 0:
                                         if (
-                                            x < self.goal_pos__
-                                            and x >= (0.65 * self.goal_pos__)
-                                            and x <= (0.85 * self.goal_pos__)
-                                        ):
-                                            self.tune_vel__ = 0.35
-                                        elif x < self.goal_pos__ and x >= (
-                                            0.85 * self.goal_pos__
+                                            self.slow_down_inc_ == 1
+                                            and x >= (0.45 * self.goal_pos__)
                                         ):
                                             self.tune_vel__ = 0.15
-                                        else:
-                                            self.tune_vel__ = 1.0
+                                            self.slow_down_inc_ += 1
+                                            self.changed_velocity_flag_ = True
+                                        elif self.slow_down_inc_ == 2 and x >= (
+                                            0.85 * self.goal_pos__
+                                        ):
+                                            self.tune_vel__ = 0.5
+                                            self.slow_down_inc_ += 1
+                                            self.changed_velocity_flag_ = True
                                     # END
 
                                     (
