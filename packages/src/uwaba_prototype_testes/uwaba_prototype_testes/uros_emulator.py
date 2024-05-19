@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
+import time
+import random
 from math import pi
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
@@ -19,15 +21,17 @@ class UrosEmulator(Node):
         self.temperature_publish_freq_ = 70
         self.imu_publish_freq_ = 50
 
-        self.encoder_msgs_: JointState = JointState()
-        self.lidar_msgs_: LaserScan = LaserScan()
-        self.temperature_msgs_: Temperature = Temperature()
-        self.imu_msgs_: Imu = Imu()
+        self.encoder_msgs_ = JointState()
+        self.lidar_msgs_ = LaserScan()
+        self.temperature_msgs_ = Temperature()
+        self.imu_msgs_ = Imu()
 
         self.linear_x_ = None
         self.angular_z_ = None
-        self.left_encoder_vel_ = None
-        self.right_encoder_vel_ = None
+        self.left_wheel_vel_ = 0.0
+        self.right_wheel_vel_ = 0.0
+
+        self.wheel_distance_ = 0.13607
 
         self.encoder_publisher_ = self.create_publisher(
             JointState, "micro_encoders", 10
@@ -72,8 +76,8 @@ class UrosEmulator(Node):
             self.encoder_msgs_.header.frame_id = "motor_vels"
             self.encoder_msgs_.name = ["Left_wheel_velocity", "Right_wheel_velocity"]
             self.encoder_msgs_.velocity = [
-                self.left_encoder_vel_,
-                self.right_encoder_vel_,
+                self.left_wheel_vel_,
+                self.right_wheel_vel_,
             ]
             self.encoder_publisher_.publish(self.encoder_msgs_)
         elif self.linear_x_ is None and self.angular_z_ is None:
@@ -100,8 +104,39 @@ class UrosEmulator(Node):
     def cmd_vel_subscription(self, cmd_vel: TwistStamped):
         self.linear_x_ = cmd_vel.twist.linear.x
         self.angular_z_ = cmd_vel.twist.angular.z
-        self.left_encoder_vel_ = self.linear_x_ - 0.5 * 0.13607 * self.angular_z_
-        self.right_encoder_vel_ = self.linear_x_ + 0.5 * 0.13607 * self.angular_z_
+        # self.left_wheel_vel_ = self.linear_x_ - 0.5 * self.wheel_distance_ * self.angular_z_
+        # self.right_wheel_vel_ = self.linear_x_ + 0.5 * self.wheel_distance_ * self.angular_z_
+        # Simulate some delay and noise in the motor response
+        if self.linear_x_ != 0.0 or self.angular_z_ != 0.0:
+            self.left_wheel_vel_ = float(
+                self.linear_x_
+                - 0.5 * self.wheel_distance_ * self.angular_z_
+                + random.uniform(-0.01, 0.01)
+            )
+            self.right_wheel_vel_ = float(
+                self.linear_x_
+                + 0.5 * self.wheel_distance_ * self.angular_z_
+                + random.uniform(-0.01, 0.01)
+            )
+        else:
+            self.left_wheel_vel_ = self.linear_x_ - 0.5 * self.wheel_distance_ * self.angular_z_
+            self.right_wheel_vel_ = self.linear_x_ + 0.5 * self.wheel_distance_ * self.angular_z_
+
+        time.sleep(0.05)  # Simulate processing delay
+
+        # Simulate encoder feedback
+        # self.update_from_encoders(self.left_wheel_vel_, self.right_wheel_vel_)
+
+    def update_from_encoders(self, left_wheel_velocity, right_wheel_velocity):
+        linear_x = (left_wheel_velocity + right_wheel_velocity) / 2.0
+        angular_z = (right_wheel_velocity - left_wheel_velocity) / self.wheel_distance_
+
+        # Update internal state or publish these values
+        self.get_logger().info(
+            f"Linear velocity: {linear_x}, Angular velocity: {angular_z}"
+        )
+        # self.linear_x_ = linear_x
+        # self.angular_z_ = angular_z
 
 
 def main(args=None):

@@ -318,7 +318,9 @@ class ControllerServer(LifecycleNode):
                     and acquired_lidar
                     and acquired_temp
                 ):
+                    # BEGIN: Debug
                     # self.get_logger().info(f"Flags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\n")
+                    # END
                     try:
                         if (
                             request == "transform"
@@ -338,15 +340,13 @@ class ControllerServer(LifecycleNode):
                                 )
 
                                 if (
-                                    dt > 0
-                                    and right_motor_vel > 0.0
-                                    or left_motor_vel > 0.0
-                                    and not self.goal_arrived_
-                                    or self.goal_arrived_ is None
+                                    right_motor_vel != 0.0 or left_motor_vel != 0.0
+                                ) and (
+                                    not self.goal_arrived_ or self.goal_arrived_ is None
                                 ):
                                     if self.changed_velocity_flag_:
                                         vx = self.tune_vel__ * (
-                                            (right_motor_vel + left_motor_vel) / 2
+                                            (right_motor_vel + left_motor_vel) / 2.0
                                         )
                                         vy = 0.0
                                         vth = (
@@ -356,7 +356,7 @@ class ControllerServer(LifecycleNode):
                                         )
                                         self.changed_velocity_flag_ = False
                                     else:
-                                        vx = (right_motor_vel + left_motor_vel) / 2
+                                        vx = (right_motor_vel + left_motor_vel) / 2.0
                                         vy = 0.0
                                         vth = (
                                             right_motor_vel - left_motor_vel
@@ -372,17 +372,16 @@ class ControllerServer(LifecycleNode):
 
                                     # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
                                     if self.goal_pos__ > 0:
-                                        if (
-                                            self.slow_down_inc_ == 1
-                                            and x >= (0.45 * self.goal_pos__)
+                                        if self.slow_down_inc_ == 1 and x >= (
+                                            0.45 * self.goal_pos__
                                         ):
-                                            self.tune_vel__ = 0.15
+                                            self.tune_vel__ = 0.25
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
                                         elif self.slow_down_inc_ == 2 and x >= (
                                             0.85 * self.goal_pos__
                                         ):
-                                            self.tune_vel__ = 0.5
+                                            self.tune_vel__ = 0.25
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
                                     # END
@@ -429,32 +428,87 @@ class ControllerServer(LifecycleNode):
                                     twist_msg.twist.angular.y = 0.0
                                     twist_msg.twist.angular.z = vth
 
+                                    self.send_cmd_vel_back_.publish(twist_msg)
+                                    self.odom_publisher_.publish(odom_msg)
+                                    self.joint_state_publisher_.publish(joint_state)
+                                    self.joint_state_broadcaster_.sendTransform(
+                                        odom_trans
+                                    )
+
+                                    total_elapsed_time += dt
+                                    starting_time = current_time
+
+                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                    goal_handle.publish_feedback(feedback)
+
                                     if x >= self.goal_pos__:
                                         self.goal_arrived_ = True
-                                        self.tune_vel__ = 0.0
-                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th} in {total_elapsed_time} seconds"
-                                        twist_msg.twist.linear.x = 0.0
-                                        twist_msg.twist.angular.z = 0.0
-                                        odom_msg.twist.twist.linear.x = 0.0
-                                        odom_msg.twist.twist.angular.z = 0.0
-                                        self.send_cmd_vel_back_.publish(twist_msg)
-                                        self.odom_publisher_.publish(odom_msg)
-                                        self.joint_state_publisher_.publish(joint_state)
-                                        self.joint_state_broadcaster_.sendTransform(
-                                            odom_trans
-                                        )
-                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                                        goal_handle.publish_feedback(feedback)
-                                        goal_handle.succeed()
 
-                                        self.got_timing_ = False
-                                        self.got_encoder_package_ = False
-                                        self.got_twist_package_ = False
-                                        self.got_imu_package_ = False
-                                        self.got_lidar_package_ = False
-                                        self.got_temp_package_ = False
+                                    self.reset_flags()
 
-                                        return result
+                                elif self.goal_arrived_:
+                                    self.tune_vel__ *= 0.000001
+                                    vx = (
+                                        self.tune_vel__
+                                        * (right_motor_vel + left_motor_vel)
+                                        / 2.0
+                                    )
+                                    vy = 0.0
+                                    vth = (
+                                        self.tune_vel__
+                                        * (right_motor_vel - left_motor_vel)
+                                        / self.wheels_separation__
+                                    )
+
+                                    delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
+                                    delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
+                                    delta_th = float(vth * dt)
+
+                                    x += delta_x
+                                    y += delta_y
+                                    th += delta_th
+
+                                    (
+                                        orientation.x,
+                                        orientation.y,
+                                        orientation.z,
+                                        orientation.w,
+                                    ) = tf_transformations.quaternion_from_euler(
+                                        0.0, 0.0, th
+                                    )
+
+                                    joint_state.header.stamp = current_time.to_msg()
+                                    joint_state.position = [x, x]
+                                    joint_state.velocity = [vx, vx]
+
+                                    odom_msg.header.stamp = current_time.to_msg()
+                                    odom_msg.pose.pose.position.x = x
+                                    odom_msg.pose.pose.position.y = y
+                                    odom_msg.pose.pose.position.z = 0.0
+                                    odom_msg.twist.twist.linear.x = vx
+                                    odom_msg.twist.twist.linear.y = 0.0
+                                    odom_msg.twist.twist.linear.z = 0.0
+                                    odom_msg.twist.twist.angular.x = 0.0
+                                    odom_msg.twist.twist.angular.y = 0.0
+                                    odom_msg.twist.twist.angular.z = vth
+                                    odom_msg.pose.pose.orientation = orientation
+
+                                    odom_trans.header.stamp = current_time.to_msg()
+                                    odom_trans.transform.translation.x = x
+                                    odom_trans.transform.translation.y = y
+                                    odom_trans.transform.translation.z = 0.0
+                                    odom_trans.transform.rotation = orientation
+
+                                    twist_msg.header.stamp = current_time.to_msg()
+                                    twist_msg.header.frame_id = (
+                                        self.cmd_vel_header_frame_id_
+                                    )
+                                    twist_msg.twist.linear.x = vx
+                                    twist_msg.twist.linear.y = 0.0
+                                    twist_msg.twist.linear.z = 0.0
+                                    twist_msg.twist.angular.x = 0.0
+                                    twist_msg.twist.angular.y = 0.0
+                                    twist_msg.twist.angular.z = vth
 
                                     self.send_cmd_vel_back_.publish(twist_msg)
                                     self.odom_publisher_.publish(odom_msg)
@@ -463,25 +517,31 @@ class ControllerServer(LifecycleNode):
                                         odom_trans
                                     )
 
-                                    starting_time = current_time
-                                    # total_elapsed_time += current_time.to_msg().sec + current_time.to_msg().nanosec/1e9
-                                    total_elapsed_time += dt
-                                    starting_time = current_time
+                                    if right_motor_vel == 0.0 and left_motor_vel == 0.0:
+                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th} in {total_elapsed_time} seconds"
+                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        goal_handle.publish_feedback(feedback)
+                                        goal_handle.succeed()
 
-                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                                    goal_handle.publish_feedback(feedback)
+                                        self.reset_flags()
 
-                                    self.got_timing_ = False
-                                    self.got_encoder_package_ = False
-                                    self.got_twist_package_ = False
-                                    self.got_imu_package_ = False
-                                    self.got_lidar_package_ = False
-                                    self.got_temp_package_ = False
+                                        return result
+                                    else:
+                                        total_elapsed_time += dt
+                                        starting_time = current_time
+                                        feedback.process = f"\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        goal_handle.publish_feedback(feedback)
+                                        self.reset_flags()
+
+                                elif dt < 0.0:
+                                    self.get_logger().error(
+                                        f"Somehow dt is negative! dt = {dt}"
+                                    )
                                 else:
                                     if (
-                                        right_motor_vel == 0.0
-                                        and left_motor_vel == 0.0
-                                        and not self.goal_arrived_
+                                        right_motor_vel == 0.0 and left_motor_vel == 0.0
+                                    ) and (
+                                        not self.goal_arrived_
                                         or self.goal_arrived_ is None
                                     ):
                                         (
@@ -542,20 +602,10 @@ class ControllerServer(LifecycleNode):
                                             odom_trans
                                         )
 
-                                        self.got_timing_ = False
-                                        self.got_encoder_package_ = False
-                                        self.got_twist_package_ = False
-                                        self.got_imu_package_ = False
-                                        self.got_lidar_package_ = False
-                                        self.got_temp_package_ = False
+                                        self.reset_flags()
                             else:
                                 self.msgs_began_ = True
-                                self.got_timing_ = False
-                                self.got_encoder_package_ = False
-                                self.got_twist_package_ = False
-                                self.got_imu_package_ = False
-                                self.got_lidar_package_ = False
-                                self.got_temp_package_ = False
+                                self.reset_flags()
 
                     finally:
                         self.cmd_flag_lock_.release()
@@ -609,6 +659,14 @@ class ControllerServer(LifecycleNode):
         if not self.got_timing_ or self.got_timing_ is None:
             with self.timing_lock_:
                 self.got_timing_ = True
+
+    def reset_flags(self):
+        self.got_timing_ = False
+        self.got_encoder_package_ = False
+        self.got_twist_package_ = False
+        self.got_imu_package_ = False
+        self.got_lidar_package_ = False
+        self.got_temp_package_ = False
 
     ############################### YET TO BE IMPLEMENTED ###############################
 
