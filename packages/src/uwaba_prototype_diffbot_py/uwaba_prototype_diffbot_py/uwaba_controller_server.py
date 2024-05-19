@@ -428,11 +428,8 @@ class ControllerServer(LifecycleNode):
                                     twist_msg.twist.angular.y = 0.0
                                     twist_msg.twist.angular.z = vth
 
-                                    self.send_cmd_vel_back_.publish(twist_msg)
-                                    self.odom_publisher_.publish(odom_msg)
-                                    self.joint_state_publisher_.publish(joint_state)
-                                    self.joint_state_broadcaster_.sendTransform(
-                                        odom_trans
+                                    self.send_transforms(
+                                        twist_msg, odom_msg, joint_state, odom_trans
                                     )
 
                                     total_elapsed_time += dt
@@ -510,11 +507,8 @@ class ControllerServer(LifecycleNode):
                                     twist_msg.twist.angular.y = 0.0
                                     twist_msg.twist.angular.z = vth
 
-                                    self.send_cmd_vel_back_.publish(twist_msg)
-                                    self.odom_publisher_.publish(odom_msg)
-                                    self.joint_state_publisher_.publish(joint_state)
-                                    self.joint_state_broadcaster_.sendTransform(
-                                        odom_trans
+                                    self.send_transforms(
+                                        twist_msg, odom_msg, joint_state, odom_trans
                                     )
 
                                     if right_motor_vel == 0.0 and left_motor_vel == 0.0:
@@ -595,11 +589,8 @@ class ControllerServer(LifecycleNode):
                                         twist_msg.twist.angular.y = 0.0
                                         twist_msg.twist.angular.z = 0.0
 
-                                        self.send_cmd_vel_back_.publish(twist_msg)
-                                        self.odom_publisher_.publish(odom_msg)
-                                        self.joint_state_publisher_.publish(joint_state)
-                                        self.joint_state_broadcaster_.sendTransform(
-                                            odom_trans
+                                        self.send_transforms(
+                                            twist_msg, odom_msg, joint_state, odom_trans
                                         )
 
                                         self.reset_flags()
@@ -667,6 +658,18 @@ class ControllerServer(LifecycleNode):
         self.got_imu_package_ = False
         self.got_lidar_package_ = False
         self.got_temp_package_ = False
+
+    def send_transforms(
+        self,
+        twist_msg: TwistStamped = None,
+        odom_msg: Odometry = None,
+        joint_state: JointState = None,
+        odom_trans: TransformStamped = None,
+    ):
+        self.send_cmd_vel_back_.publish(twist_msg)
+        self.odom_publisher_.publish(odom_msg)
+        self.joint_state_publisher_.publish(joint_state)
+        self.joint_state_broadcaster_.sendTransform(odom_trans)
 
     ############################### YET TO BE IMPLEMENTED ###############################
 
