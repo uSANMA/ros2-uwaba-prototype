@@ -3,17 +3,17 @@ uwaba_controller_server_node:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
     transform_rate: 100.0
-    goal_position_x: 1.0
+    goal_position_x: 2.0
     tune_velocity: 1.0
     thread_timing: 30.0             # Lowest pub frequency in the system
     thread_timeout_tune: 2.0        # Margin for thread acquired timeout's timing
-    max_linear_velocity: 0.5        # Max velocity in m/s at linear x (so that the robot start moving and jump start its motion towards the goal)
+    max_linear_velocity: 1.0       # Max velocity in m/s at linear x (so that the robot start moving and jump start its motion towards the goal)
     odom_topic: "odom"
     joint_states_topic: "joint_states"
     uros_encoder_topic: "micro_encoders"
     uros_imu_topic: "micro_imu"
-    uros_temperature_topic: "micro_temp"
-    uros_lidar_topic: "micro_laser"
+    uros_temperature_topic: "micro_temperature"
+    uros_lidar_topic: "micro_laserscan"
 
 uwaba_controller_manager_node:
   ros__parameters:

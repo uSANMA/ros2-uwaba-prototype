@@ -6,6 +6,7 @@ from math import pi
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.qos import QoSProfile
 
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from geometry_msgs.msg import TwistStamped
@@ -15,6 +16,10 @@ class UrosEmulator(Node):
     def __init__(self):
         super().__init__("uros_emulator_node")
         self.get_logger().info("microROS Emulator has started.")
+
+        self.qos_profile_micro_ = QoSProfile(
+            depth=10, reliability=2, durability=2, liveliness=1
+        )
 
         self.encoder_publish_freq_ = 30
         self.lidar_publish_freq_ = 50
@@ -34,18 +39,22 @@ class UrosEmulator(Node):
         self.wheel_distance_ = 0.13607
 
         self.encoder_publisher_ = self.create_publisher(
-            JointState, "micro_encoders", 10
+            JointState, "micro_encoders", self.qos_profile_micro_
         )
-        self.lidar_publisher_ = self.create_publisher(LaserScan, "micro_laser", 10)
+        self.lidar_publisher_ = self.create_publisher(
+            LaserScan, "micro_laserscan", self.qos_profile_micro_
+        )
         self.temperature_publisher_ = self.create_publisher(
-            Temperature, "micro_temp", 10
+            Temperature, "micro_temperature", self.qos_profile_micro_
         )
-        self.imu_publisher_ = self.create_publisher(Imu, "micro_imu", 10)
+        self.imu_publisher_ = self.create_publisher(
+            Imu, "micro_imu", self.qos_profile_micro_
+        )
         self.cmd_vel_subscription_ = self.create_subscription(
             TwistStamped,
             "uwaba_controller_server_node/cmd_vel",
             self.cmd_vel_subscription,
-            10,
+            self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
         )
 
@@ -119,8 +128,12 @@ class UrosEmulator(Node):
                 + random.uniform(-0.01, 0.01)
             )
         else:
-            self.left_wheel_vel_ = self.linear_x_ - 0.5 * self.wheel_distance_ * self.angular_z_
-            self.right_wheel_vel_ = self.linear_x_ + 0.5 * self.wheel_distance_ * self.angular_z_
+            self.left_wheel_vel_ = (
+                self.linear_x_ - 0.5 * self.wheel_distance_ * self.angular_z_
+            )
+            self.right_wheel_vel_ = (
+                self.linear_x_ + 0.5 * self.wheel_distance_ * self.angular_z_
+            )
 
         time.sleep(0.05)  # Simulate processing delay
 

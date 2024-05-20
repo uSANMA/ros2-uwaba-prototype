@@ -27,7 +27,7 @@ class ControllerManager(Node):
         self.client_ = self.create_client(ChangeState, service_change_state_name)
         self.get_state_client_ = self.create_client(GetState, service_get_state)
         self.action_client_ = ActionClient(
-            self, ControlActions, "uWABA_prototype/Control_Server"
+            self, ControlActions, "uwaba_prototype/control_server"
         )
         self.goal_service_ = self.create_service(
             ManagerServices,

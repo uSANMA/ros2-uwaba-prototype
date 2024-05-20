@@ -39,7 +39,10 @@ class ControllerServer(LifecycleNode):
         self.lf_node_name_ = "uwaba_controller_server_node"
         super().__init__(f"{self.lf_node_name_}")
         # Constructor parameters
-        self.qos_profile_ = QoSProfile(depth=10)
+        self.qos_profile_micro_ = QoSProfile(
+            depth=10, reliability=2, durability=2, liveliness=1
+        )
+        self.qos_profile_ = 10
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
@@ -65,6 +68,9 @@ class ControllerServer(LifecycleNode):
 
         # Subscription parameters
         self.covariance_fill_ = np.zeros((36,))
+        for i in range(0, len(self.covariance_fill_)):
+            self.covariance_fill_[i] += 0.001
+
         self.cmd_vel_header_stamp_ = None
         self.cmd_vel_header_frame_id_ = None
         self.cmd_vel_linear_ = None
@@ -114,7 +120,7 @@ class ControllerServer(LifecycleNode):
         self.control_server_ = ActionServer(
             self,
             ControlActions,
-            "uWABA_prototype/Control_Server",
+            "uwaba_prototype/control_server",
             goal_callback=self.goal_callback,
             # handle_accepted_callback=self.handle_accepted_callback,          # Won't implement goal queue for now
             cancel_callback=self.cancel_callback,
@@ -145,25 +151,25 @@ class ControllerServer(LifecycleNode):
             JointState,
             f"{self.uros_encoder_topic__}",
             self.uros_encoder_subscription,
-            self.qos_profile_,
+            self.qos_profile_micro_,
         )
         self.uros_lidar_subscriber = self.create_subscription(
             LaserScan,
             f"{self.uros_lidar_topic__}",
             self.uros_laser_subscription,
-            self.qos_profile_,
+            self.qos_profile_micro_,
         )
         self.uros_imu_subscriber = self.create_subscription(
             Imu,
             f"{self.uros_imu_topic__}",
             self.uros_imu_subscription,
-            self.qos_profile_,
+            self.qos_profile_micro_,
         )
         self.uros_temp_subscriber = self.create_subscription(
             Temperature,
             f"{self.uros_temperature_topic__}",
             self.uros_temp_subscription,
-            self.qos_profile_,
+            self.qos_profile_micro_,
         )
         self.time_rate = self.create_timer(
             (1.0 / self.transform_rate__), self.timing_function
@@ -304,20 +310,20 @@ class ControllerServer(LifecycleNode):
                 starting_time = self.get_clock().now()
 
             with self.timing_lock_:
-                acquired_cmd = self.cmd_flag_lock_.acquire(timeout=timeout_locks)
+                # acquired_cmd = self.cmd_flag_lock_.acquire(timeout=timeout_locks)
                 acquired_encoder = self.encoder_flag_lock_.acquire(
                     timeout=timeout_locks
                 )
-                acquired_imu = self.imu_flag_lock_.acquire(timeout=timeout_locks)
-                acquired_lidar = self.lidar_flag_lock_.acquire(timeout=timeout_locks)
-                acquired_temp = self.temp_flag_lock_.acquire(timeout=timeout_locks)
+                # acquired_imu = self.imu_flag_lock_.acquire(timeout=timeout_locks)
+                # acquired_lidar = self.lidar_flag_lock_.acquire(timeout=timeout_locks)
+                # acquired_temp = self.temp_flag_lock_.acquire(timeout=timeout_locks)
 
                 if (
-                    acquired_cmd
-                    and acquired_encoder
-                    and acquired_imu
-                    and acquired_lidar
-                    and acquired_temp
+                    acquired_encoder
+                    # and acquired_cmd
+                    # and acquired_imu
+                    # and acquired_lidar
+                    # and acquired_temp
                 ):
                     # BEGIN: Debug
                     # self.get_logger().info(f"Flags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\n")
@@ -326,10 +332,10 @@ class ControllerServer(LifecycleNode):
                         if (
                             request == "transform"
                             and self.got_encoder_package_
-                            and self.got_twist_package_
-                            and self.got_imu_package_
-                            and self.got_lidar_package_
-                            and self.got_temp_package_
+                            # and self.got_twist_package_
+                            # and self.got_imu_package_
+                            # and self.got_lidar_package_
+                            # and self.got_temp_package_
                         ):
                             if self.msgs_began_:
                                 current_time = self.get_clock().now()
@@ -355,6 +361,7 @@ class ControllerServer(LifecycleNode):
                                             * (right_motor_vel - left_motor_vel)
                                             / self.wheels_separation__
                                         )
+                                        # vth = 0.0
                                         self.changed_velocity_flag_ = False
                                     else:
                                         vx = (right_motor_vel + left_motor_vel) / 2.0
@@ -362,6 +369,7 @@ class ControllerServer(LifecycleNode):
                                         vth = (
                                             right_motor_vel - left_motor_vel
                                         ) / self.wheels_separation__
+                                        # vth = 0.0
 
                                     delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
                                     delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
@@ -419,7 +427,7 @@ class ControllerServer(LifecycleNode):
                                     odom_trans.transform.rotation = orientation
 
                                     twist_msg.header.stamp = current_time.to_msg()
-                                    twist_msg.header.frame_id = (
+                                    twist_msg.header.frame_id = str(
                                         self.cmd_vel_header_frame_id_
                                     )
                                     twist_msg.twist.linear.x = vx
@@ -498,7 +506,7 @@ class ControllerServer(LifecycleNode):
                                     odom_trans.transform.rotation = orientation
 
                                     twist_msg.header.stamp = current_time.to_msg()
-                                    twist_msg.header.frame_id = (
+                                    twist_msg.header.frame_id = str(
                                         self.cmd_vel_header_frame_id_
                                     )
                                     twist_msg.twist.linear.x = vx
@@ -578,7 +586,7 @@ class ControllerServer(LifecycleNode):
                                         odom_trans.transform.rotation = orientation
 
                                         twist_msg.header.stamp = current_time.to_msg()
-                                        twist_msg.header.frame_id = (
+                                        twist_msg.header.frame_id = str(
                                             self.cmd_vel_header_frame_id_
                                         )
                                         twist_msg.twist.linear.x = (
@@ -600,11 +608,11 @@ class ControllerServer(LifecycleNode):
                                 self.reset_flags()
 
                     finally:
-                        self.cmd_flag_lock_.release()
+                        # self.cmd_flag_lock_.release()
                         self.encoder_flag_lock_.release()
-                        self.imu_flag_lock_.release()
-                        self.lidar_flag_lock_.release()
-                        self.temp_flag_lock_.release()
+                        # self.imu_flag_lock_.release()
+                        # self.lidar_flag_lock_.release()
+                        # self.temp_flag_lock_.release()
                 else:
                     feedback.process = f"Some flags timed-out. Time out current time (s): {timeout_locks}\nFlags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\nLock_Encoder:\t{self.encoder_flag_lock_.locked()}\nLock_Twist:\t{self.cmd_flag_lock_.locked()}\nLock_IMU:\t\t{self.imu_flag_lock_.locked()}\nLock_Lidar:\t{self.lidar_flag_lock_.locked()}\nLock_Temp:\t\t{self.temp_flag_lock_.locked()}\nTiming_Lock:\t{self.timing_lock_.locked()}"
                     goal_handle.publish_feedback(feedback)
@@ -655,10 +663,10 @@ class ControllerServer(LifecycleNode):
     def reset_flags(self):
         self.got_timing_ = False
         self.got_encoder_package_ = False
-        self.got_twist_package_ = False
-        self.got_imu_package_ = False
-        self.got_lidar_package_ = False
-        self.got_temp_package_ = False
+        # self.got_twist_package_ = False
+        # self.got_imu_package_ = False
+        # self.got_lidar_package_ = False
+        # self.got_temp_package_ = False
 
     def send_transforms(
         self,

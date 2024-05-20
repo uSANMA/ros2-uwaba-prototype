@@ -46,6 +46,7 @@ def generate_launch_description():
         package="joint_state_publisher",
         executable="joint_state_publisher",
         name="joint_state_publisher",
+        # qos=[]
     )
     rviz_node = Node(
         package="rviz2",
@@ -63,12 +64,12 @@ def generate_launch_description():
     #      parameters=[os.path.join(pkg_share, 'config/ekf.yaml'), {'use_sim_time': LaunchConfiguration('use_sim_time')}]
     # )
 
-    delay_rviz_after_server = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=server_node,
-            on_exit=[rviz_node],
-        )
-    )
+    # delay_rviz_after_server = RegisterEventHandler(
+    #     event_handler=OnProcessExit(
+    #         target_action=server_node,
+    #         on_exit=[rviz_node],
+    #     )
+    # )
 
     return launch.LaunchDescription(
         [
