@@ -257,6 +257,7 @@ class ControllerServer(LifecycleNode):
             self.goal_handle_ = goal_handle
 
         request = goal_handle.request.request
+        # goal_request = goal_handle.request.goal_request
         self.get_logger().info(f"Request: {request}")
         child_frame_id = goal_handle.request.child_frame_id
         self.get_logger().info(f"Child_Frame_Id: {child_frame_id}")

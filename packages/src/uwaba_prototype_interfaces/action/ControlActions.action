@@ -1,6 +1,7 @@
 # Goal 
 string request
 string child_frame_id
+float32 goal_request
 ---
 # Result
 string result_msg

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
-import time
-from rclpy.node import Node, Executor
+import re
+from rclpy.node import Node
 from lifecycle_msgs.srv import ChangeState, GetState
 from lifecycle_msgs.msg import Transition, State
 
@@ -9,6 +9,7 @@ from rclpy.action import ActionClient
 from rclpy.action.client import ClientGoalHandle, GoalStatus
 
 from uwaba_prototype_interfaces.action import ControlActions
+from uwaba_prototype_interfaces.srv import ManagerServices
 
 
 class ControllerManager(Node):
@@ -28,8 +29,51 @@ class ControllerManager(Node):
         self.action_client_ = ActionClient(
             self, ControlActions, "uWABA_prototype/Control_Server"
         )
+        self.goal_service_ = self.create_service(
+            ManagerServices,
+            f"/{node_name}/goal_service",
+            callback=self.goal_service_request_handler,
+        )
         self.goal_flag = False
         self.trans_cleaned = False
+        self.action_request_service_ = ""
+
+    def goal_service_request_handler(
+        self, request: ManagerServices.Request, response: ManagerServices.Response
+    ):
+        # Define the regex pattern
+        goal_pattern = r"(set_goal)_(\w) = (\d+\.\d+)"
+        cancel_pattern = r"(cancel)"
+
+        # Match the pattern with the request string
+        match = re.match(goal_pattern, request.goal_request)
+        if match:
+            action, axis, value = match.groups()
+            self.get_logger().info(f"Received goal request action {action} to axis {axis} at {float(value)}")
+        
+        match = re.match(cancel_pattern, request.goal_request)
+        if match:
+            action = match.group(1)
+            self.get_logger().info(f"Received a {action} request.")
+        
+        try:
+            if action == "set_goal":
+                if axis == "x":
+                    self.action_request_service_ = float(value)
+                    response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
+                    self.send_goal_from_service(self.action_request_service_)
+                else:
+                    self.get_logger().warn(
+                        "The goal to this axis is not yet implemented."
+                    )
+            elif action == "cancel":
+                self.action_request_service_ = "cancel"
+                response.request_info = f"Request to {action} successful. Sending action to the server..."
+                self.goal_handle_.cancel_goal_async()
+            else:
+                self.get_logger().warn("This goal is not yet implemented.")
+        except ValueError as e:
+            self.get_logger().error(e)
 
     def change_state(self, transition: Transition):
         self.client_.wait_for_service()
@@ -72,6 +116,14 @@ class ControllerManager(Node):
             goal, feedback_callback=self.goal_feedback_callback
         ).add_done_callback(self.goal_response_callback)
         self.goal_flag = True
+    
+    def send_goal_from_service(self, request):
+        self.action_client_.wait_for_server()
+        goal = ControlActions.Goal()
+        goal.goal_request = request
+        self.action_client_.send_goal_async(
+            goal, feedback_callback=self.goal_feedback_callback
+        ).add_done_callback(self.goal_response_callback)
 
     def goal_feedback_callback(self, feedback_msg):
         process = feedback_msg.feedback.process

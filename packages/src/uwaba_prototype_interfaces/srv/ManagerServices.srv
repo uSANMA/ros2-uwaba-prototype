@@ -1,0 +1,5 @@
+# Request
+string goal_request
+---
+# Responses
+string request_info
