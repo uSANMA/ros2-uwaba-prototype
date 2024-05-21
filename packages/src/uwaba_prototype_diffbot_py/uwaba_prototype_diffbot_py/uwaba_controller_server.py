@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import rclpy
-import time
 import threading
+import time
 import tf_transformations
 import numpy as np
 from math import sin, cos, pi
 
 from rclpy.lifecycle import LifecycleNode
+from rclpy.node import Node
 from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
@@ -114,6 +115,12 @@ class ControllerServer(LifecycleNode):
         self.joint_state_topic__ = self.get_parameter("joint_states_topic").value
         self.declare_parameter("cmd_vel_topic", "cmd_vel")
         self.cmd_vel_topic__ = self.get_parameter("cmd_vel_topic").value
+
+        self.timeout_locks = self.carlinhos_pro__ * float(1 / self.thread_timing__)
+        # Odometry starting point
+        self.x = 0.0
+        self.y = 0.0
+        self.th = 0.0
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
@@ -241,19 +248,32 @@ class ControllerServer(LifecycleNode):
         if not self.server_activated_:
             self.get_logger().warn("Server not yet activated.")
             return GoalResponse.REJECT
+        elif goal_request.request == "set_goal" and goal_request.goal_request == 0.0:
+            self.get_logger().warn("Goal requested at x = 0.0. Rejecting goal...")
+            return GoalResponse.REJECT
+
+        if goal_request.request == "set_goal":
+            self.get_logger().info(
+                f"Goal {goal_request.request} accepted. Destination at x: {goal_request.goal_request}"
+            )
+            return GoalResponse.ACCEPT
+
+        elif goal_request.request == "transform":
+            self.get_logger().info(
+                f"Goal {goal_request.request} accepted. Destination at x: {self.goal_pos__}"
+            )
+            return GoalResponse.ACCEPT
+
         with self.goal_lock_:
             # Policy: Goal preemption (must be after some goal are already valid thus preempting)
             if self.goal_handle_ is not None and self.goal_handle_.is_active:
-                self.get_logger().warn(
-                    "A goal is already active, aborting new goal."
-                )  ## REMOVE WHEN DONE
+                self.get_logger().warn("A goal is already active, aborting new goal.")
                 self.goal_handle_.abort()
-        return GoalResponse.ACCEPT
 
     def cancel_callback(self, goal_handle: ServerGoalHandle) -> CancelResponse:
         self.get_logger().warn(
             f"Received a cancel request, canceling with status {goal_handle.status}"
-        )  ## REMOVE WHEN DONE
+        )
         self.goal_handle_.abort()
         return CancelResponse.ACCEPT
 
@@ -263,10 +283,13 @@ class ControllerServer(LifecycleNode):
             self.goal_handle_ = goal_handle
 
         request = goal_handle.request.request
-        # goal_request = goal_handle.request.goal_request
+        if request == "set_goal":
+            self.goal_pos__ = goal_handle.request.goal_request
+            self.goal_arrived_ = False
+
         self.get_logger().info(f"Request: {request}")
-        child_frame_id = goal_handle.request.child_frame_id
-        self.get_logger().info(f"Child_Frame_Id: {child_frame_id}")
+        action_frame_id = goal_handle.request.frame_id
+        self.get_logger().info(f"Child_Frame_Id: {action_frame_id}")
 
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
@@ -290,12 +313,6 @@ class ControllerServer(LifecycleNode):
         count_starting = 0
         total_elapsed_time = 0.0
 
-        # Odometry starting point
-        x = 0.0
-        y = 0.0
-        th = 0.0
-        timeout_locks = self.carlinhos_pro__ * float(1 / self.thread_timing__)
-
         while rclpy.ok():
             if not goal_handle.is_active:
                 result.result_msg = "Preempted by another goal, or node deactivated."
@@ -310,13 +327,13 @@ class ControllerServer(LifecycleNode):
                 starting_time = self.get_clock().now()
 
             with self.timing_lock_:
-                # acquired_cmd = self.cmd_flag_lock_.acquire(timeout=timeout_locks)
+                # acquired_cmd = self.cmd_flag_lock_.acquire(timeout=self.timeout_locks)
                 acquired_encoder = self.encoder_flag_lock_.acquire(
-                    timeout=timeout_locks
+                    timeout=self.timeout_locks
                 )
-                # acquired_imu = self.imu_flag_lock_.acquire(timeout=timeout_locks)
-                # acquired_lidar = self.lidar_flag_lock_.acquire(timeout=timeout_locks)
-                # acquired_temp = self.temp_flag_lock_.acquire(timeout=timeout_locks)
+                # acquired_imu = self.imu_flag_lock_.acquire(timeout=self.timeout_locks)
+                # acquired_lidar = self.lidar_flag_lock_.acquire(timeout=self.timeout_locks)
+                # acquired_temp = self.temp_flag_lock_.acquire(timeout=self.timeout_locks)
 
                 if (
                     acquired_encoder
@@ -330,8 +347,7 @@ class ControllerServer(LifecycleNode):
                     # END
                     try:
                         if (
-                            request == "transform"
-                            and self.got_encoder_package_
+                            self.got_encoder_package_
                             # and self.got_twist_package_
                             # and self.got_imu_package_
                             # and self.got_lidar_package_
@@ -371,23 +387,27 @@ class ControllerServer(LifecycleNode):
                                         ) / self.wheels_separation__
                                         # vth = 0.0
 
-                                    delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
-                                    delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
+                                    delta_x = float(
+                                        (vx * cos(self.th) - vy * sin(self.th)) * dt
+                                    )
+                                    delta_y = float(
+                                        (vx * sin(self.th) + vy * cos(self.th)) * dt
+                                    )
                                     delta_th = float(vth * dt)
 
-                                    x += delta_x
-                                    y += delta_y
-                                    th += delta_th
+                                    self.x += delta_x
+                                    self.y += delta_y
+                                    self.th += delta_th
 
                                     # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
                                     if self.goal_pos__ > 0:
-                                        if self.slow_down_inc_ == 1 and x >= (
+                                        if self.slow_down_inc_ == 1 and self.x >= (
                                             0.45 * self.goal_pos__
                                         ):
                                             self.tune_vel__ = 0.25
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
-                                        elif self.slow_down_inc_ == 2 and x >= (
+                                        elif self.slow_down_inc_ == 2 and self.x >= (
                                             0.85 * self.goal_pos__
                                         ):
                                             self.tune_vel__ = 0.25
@@ -401,16 +421,16 @@ class ControllerServer(LifecycleNode):
                                         orientation.z,
                                         orientation.w,
                                     ) = tf_transformations.quaternion_from_euler(
-                                        0.0, 0.0, th
+                                        0.0, 0.0, self.th
                                     )
 
                                     joint_state.header.stamp = current_time.to_msg()
-                                    joint_state.position = [x, x]
+                                    joint_state.position = [self.x, self.x]
                                     joint_state.velocity = [vx, vx]
 
                                     odom_msg.header.stamp = current_time.to_msg()
-                                    odom_msg.pose.pose.position.x = x
-                                    odom_msg.pose.pose.position.y = y
+                                    odom_msg.pose.pose.position.x = self.x
+                                    odom_msg.pose.pose.position.y = self.y
                                     odom_msg.pose.pose.position.z = 0.0
                                     odom_msg.twist.twist.linear.x = vx
                                     odom_msg.twist.twist.linear.y = 0.0
@@ -421,8 +441,8 @@ class ControllerServer(LifecycleNode):
                                     odom_msg.pose.pose.orientation = orientation
 
                                     odom_trans.header.stamp = current_time.to_msg()
-                                    odom_trans.transform.translation.x = x
-                                    odom_trans.transform.translation.y = y
+                                    odom_trans.transform.translation.x = self.x
+                                    odom_trans.transform.translation.y = self.y
                                     odom_trans.transform.translation.z = 0.0
                                     odom_trans.transform.rotation = orientation
 
@@ -444,10 +464,10 @@ class ControllerServer(LifecycleNode):
                                     total_elapsed_time += dt
                                     starting_time = current_time
 
-                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                     goal_handle.publish_feedback(feedback)
 
-                                    if x >= self.goal_pos__:
+                                    if self.x >= self.goal_pos__:
                                         self.goal_arrived_ = True
 
                                     self.reset_flags()
@@ -466,13 +486,17 @@ class ControllerServer(LifecycleNode):
                                         / self.wheels_separation__
                                     )
 
-                                    delta_x = float((vx * cos(th) - vy * sin(th)) * dt)
-                                    delta_y = float((vx * sin(th) + vy * cos(th)) * dt)
+                                    delta_x = float(
+                                        (vx * cos(self.th) - vy * sin(self.th)) * dt
+                                    )
+                                    delta_y = float(
+                                        (vx * sin(self.th) + vy * cos(self.th)) * dt
+                                    )
                                     delta_th = float(vth * dt)
 
-                                    x += delta_x
-                                    y += delta_y
-                                    th += delta_th
+                                    self.x += delta_x
+                                    self.y += delta_y
+                                    self.th += delta_th
 
                                     (
                                         orientation.x,
@@ -480,16 +504,16 @@ class ControllerServer(LifecycleNode):
                                         orientation.z,
                                         orientation.w,
                                     ) = tf_transformations.quaternion_from_euler(
-                                        0.0, 0.0, th
+                                        0.0, 0.0, self.th
                                     )
 
                                     joint_state.header.stamp = current_time.to_msg()
-                                    joint_state.position = [x, x]
+                                    joint_state.position = [self.x, self.x]
                                     joint_state.velocity = [vx, vx]
 
                                     odom_msg.header.stamp = current_time.to_msg()
-                                    odom_msg.pose.pose.position.x = x
-                                    odom_msg.pose.pose.position.y = y
+                                    odom_msg.pose.pose.position.x = self.x
+                                    odom_msg.pose.pose.position.y = self.y
                                     odom_msg.pose.pose.position.z = 0.0
                                     odom_msg.twist.twist.linear.x = vx
                                     odom_msg.twist.twist.linear.y = 0.0
@@ -500,8 +524,8 @@ class ControllerServer(LifecycleNode):
                                     odom_msg.pose.pose.orientation = orientation
 
                                     odom_trans.header.stamp = current_time.to_msg()
-                                    odom_trans.transform.translation.x = x
-                                    odom_trans.transform.translation.y = y
+                                    odom_trans.transform.translation.x = self.x
+                                    odom_trans.transform.translation.y = self.y
                                     odom_trans.transform.translation.z = 0.0
                                     odom_trans.transform.rotation = orientation
 
@@ -521,8 +545,8 @@ class ControllerServer(LifecycleNode):
                                     )
 
                                     if right_motor_vel == 0.0 and left_motor_vel == 0.0:
-                                        result.result_msg = f"Arrived at the set destination: x= {x}, y= {y}, theta= {th} in {total_elapsed_time} seconds"
-                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        result.result_msg = f"Arrived at the set destination: x= {self.x}, y= {self.y}, theta= {self.th} in {total_elapsed_time} seconds"
+                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                         goal_handle.publish_feedback(feedback)
                                         goal_handle.succeed()
 
@@ -532,7 +556,7 @@ class ControllerServer(LifecycleNode):
                                     else:
                                         total_elapsed_time += dt
                                         starting_time = current_time
-                                        feedback.process = f"\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{x}\n - y:\t\t\t{y}\n - th:\t\t\t{th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        feedback.process = f"\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                         goal_handle.publish_feedback(feedback)
                                         self.reset_flags()
 
@@ -614,7 +638,7 @@ class ControllerServer(LifecycleNode):
                         # self.lidar_flag_lock_.release()
                         # self.temp_flag_lock_.release()
                 else:
-                    feedback.process = f"Some flags timed-out. Time out current time (s): {timeout_locks}\nFlags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\nLock_Encoder:\t{self.encoder_flag_lock_.locked()}\nLock_Twist:\t{self.cmd_flag_lock_.locked()}\nLock_IMU:\t\t{self.imu_flag_lock_.locked()}\nLock_Lidar:\t{self.lidar_flag_lock_.locked()}\nLock_Temp:\t\t{self.temp_flag_lock_.locked()}\nTiming_Lock:\t{self.timing_lock_.locked()}"
+                    feedback.process = f"Some flags timed-out. Time out current time (s): {self.timeout_locks}\nFlags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\nLock_Encoder:\t{self.encoder_flag_lock_.locked()}\nLock_Twist:\t{self.cmd_flag_lock_.locked()}\nLock_IMU:\t\t{self.imu_flag_lock_.locked()}\nLock_Lidar:\t{self.lidar_flag_lock_.locked()}\nLock_Temp:\t\t{self.temp_flag_lock_.locked()}\nTiming_Lock:\t{self.timing_lock_.locked()}"
                     goal_handle.publish_feedback(feedback)
 
             if request == "empty" or request is None or request == "":
@@ -667,6 +691,56 @@ class ControllerServer(LifecycleNode):
         # self.got_imu_package_ = False
         # self.got_lidar_package_ = False
         # self.got_temp_package_ = False
+
+    def set_twist_pkg(
+        self, current_time, set_twist_msg: TwistStamped, frame_id, lx, az
+    ) -> TwistStamped:
+        set_twist_msg.header.stamp = current_time.to_msg()
+        set_twist_msg.header.frame_id = frame_id
+        set_twist_msg.twist.linear.x = lx
+        set_twist_msg.twist.linear.y = 0.0
+        set_twist_msg.twist.linear.z = 0.0
+        set_twist_msg.twist.angular.x = 0.0
+        set_twist_msg.twist.angular.y = 0.0
+        set_twist_msg.twist.angular.z = az
+        return set_twist_msg
+
+    def set_odom_pkg(
+        self,
+        current_time,
+        set_odom_msg: Odometry,
+        pos_x,
+        pos_y,
+        lx,
+        az,
+        set_orientation: Quaternion,
+    ) -> Odometry:
+        set_odom_msg.header.stamp = current_time.to_msg()
+        set_odom_msg.pose.pose.position.x = pos_x
+        set_odom_msg.pose.pose.position.y = pos_y
+        set_odom_msg.pose.pose.position.z = 0.0
+        set_odom_msg.twist.twist.linear.x = lx
+        set_odom_msg.twist.twist.linear.y = 0.0
+        set_odom_msg.twist.twist.linear.z = 0.0
+        set_odom_msg.twist.twist.angular.x = 0.0
+        set_odom_msg.twist.twist.angular.y = 0.0
+        set_odom_msg.twist.twist.angular.z = az
+        set_odom_msg.pose.pose.orientation = self.orientation_calc(set_orientation, az)
+        return set_odom_msg
+
+    def set_joint_state_pkg(
+        self, set_joint_state: TransformStamped
+    ) -> TransformStamped:
+        pass
+
+    def orientation_calc(self, set_orientation: Quaternion, az):
+        set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
+            tf_transformations.quaternion_from_euler(0.0, 0.0, az)
+        )
+        return set_orientation
+
+    def odom_calc(self):
+        pass
 
     def send_transforms(
         self,
