@@ -274,6 +274,51 @@ class ControllerServer(LifecycleNode):
         self.get_logger().warn(
             f"Received a cancel request, canceling with status {goal_handle.status}"
         )
+        current_time = self.get_clock().now()
+        joint_state = JointState()
+        joint_state.name = ["Left_sprocket_base_joint", "Right_sprocket_base_joint"]
+        joint_state.header.frame_id = "wheels_states"
+
+        orientation = Quaternion()
+
+        odom_trans = TransformStamped()
+        odom_trans.header.frame_id = "odom"
+        odom_trans.child_frame_id = "base_footprint"
+
+        twist_msg = TwistStamped()
+
+        odom_msg = Odometry()
+        odom_msg.header.frame_id = "odom"
+        odom_msg.child_frame_id = "base_footprint"
+        odom_msg.pose.covariance = self.covariance_fill_
+        odom_msg.twist.covariance = self.covariance_fill_
+
+        odom_msg = self.set_odom_pkg(
+            current_time,
+            odom_msg,
+            self.x,
+            self.y,
+            0.0,
+            0.0,
+            self.th,
+            orientation,
+        )
+        odom_trans = self.set_state_transform(
+            current_time,
+            odom_trans,
+            self.x,
+            self.y,
+            self.th,
+            orientation,
+        )
+        twist_msg = self.set_twist_pkg(
+            current_time,
+            twist_msg,
+            str(self.cmd_vel_header_frame_id_),
+            0.0,
+            0.0,
+        )
+        self.send_transforms(twist_msg, odom_msg, joint_state, odom_trans)
         self.goal_handle_.abort()
         return CancelResponse.ACCEPT
 
@@ -309,6 +354,8 @@ class ControllerServer(LifecycleNode):
         odom_msg = Odometry()
         odom_msg.header.frame_id = "odom"
         odom_msg.child_frame_id = "base_footprint"
+        odom_msg.pose.covariance = self.covariance_fill_
+        odom_msg.twist.covariance = self.covariance_fill_
 
         count_starting = 0
         total_elapsed_time = 0.0
@@ -342,9 +389,6 @@ class ControllerServer(LifecycleNode):
                     # and acquired_lidar
                     # and acquired_temp
                 ):
-                    # BEGIN: Debug
-                    # self.get_logger().info(f"Flags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\n")
-                    # END
                     try:
                         if (
                             self.got_encoder_package_
@@ -371,7 +415,6 @@ class ControllerServer(LifecycleNode):
                                         vx = self.tune_vel__ * (
                                             (right_motor_vel + left_motor_vel) / 2.0
                                         )
-                                        vy = 0.0
                                         vth = (
                                             self.tune_vel__
                                             * (right_motor_vel - left_motor_vel)
@@ -381,81 +424,59 @@ class ControllerServer(LifecycleNode):
                                         self.changed_velocity_flag_ = False
                                     else:
                                         vx = (right_motor_vel + left_motor_vel) / 2.0
-                                        vy = 0.0
                                         vth = (
                                             right_motor_vel - left_motor_vel
                                         ) / self.wheels_separation__
                                         # vth = 0.0
 
-                                    delta_x = float(
-                                        (vx * cos(self.th) - vy * sin(self.th)) * dt
+                                    delta_x, delta_y, delta_th = self.odom_calc(
+                                        dt, vx, vth
                                     )
-                                    delta_y = float(
-                                        (vx * sin(self.th) + vy * cos(self.th)) * dt
-                                    )
-                                    delta_th = float(vth * dt)
-
-                                    self.x += delta_x
-                                    self.y += delta_y
-                                    self.th += delta_th
 
                                     # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
-                                    if self.goal_pos__ > 0:
+                                    if (self.goal_pos__) > 0:
                                         if self.slow_down_inc_ == 1 and self.x >= (
-                                            0.45 * self.goal_pos__
+                                            0.45 * (self.goal_pos__)
                                         ):
                                             self.tune_vel__ = 0.25
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
                                         elif self.slow_down_inc_ == 2 and self.x >= (
-                                            0.85 * self.goal_pos__
+                                            0.85 * (self.goal_pos__)
                                         ):
                                             self.tune_vel__ = 0.25
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
                                     # END
 
-                                    (
-                                        orientation.x,
-                                        orientation.y,
-                                        orientation.z,
-                                        orientation.w,
-                                    ) = tf_transformations.quaternion_from_euler(
-                                        0.0, 0.0, self.th
+                                    joint_state = self.set_joint_state_pkg(
+                                        current_time, joint_state, vx
                                     )
-
-                                    joint_state.header.stamp = current_time.to_msg()
-                                    joint_state.position = [self.x, self.x]
-                                    joint_state.velocity = [vx, vx]
-
-                                    odom_msg.header.stamp = current_time.to_msg()
-                                    odom_msg.pose.pose.position.x = self.x
-                                    odom_msg.pose.pose.position.y = self.y
-                                    odom_msg.pose.pose.position.z = 0.0
-                                    odom_msg.twist.twist.linear.x = vx
-                                    odom_msg.twist.twist.linear.y = 0.0
-                                    odom_msg.twist.twist.linear.z = 0.0
-                                    odom_msg.twist.twist.angular.x = 0.0
-                                    odom_msg.twist.twist.angular.y = 0.0
-                                    odom_msg.twist.twist.angular.z = vth
-                                    odom_msg.pose.pose.orientation = orientation
-
-                                    odom_trans.header.stamp = current_time.to_msg()
-                                    odom_trans.transform.translation.x = self.x
-                                    odom_trans.transform.translation.y = self.y
-                                    odom_trans.transform.translation.z = 0.0
-                                    odom_trans.transform.rotation = orientation
-
-                                    twist_msg.header.stamp = current_time.to_msg()
-                                    twist_msg.header.frame_id = str(
-                                        self.cmd_vel_header_frame_id_
+                                    odom_msg = self.set_odom_pkg(
+                                        current_time,
+                                        odom_msg,
+                                        self.x,
+                                        self.y,
+                                        vx,
+                                        vth,
+                                        self.th,
+                                        orientation,
                                     )
-                                    twist_msg.twist.linear.x = vx
-                                    twist_msg.twist.linear.y = 0.0
-                                    twist_msg.twist.linear.z = 0.0
-                                    twist_msg.twist.angular.x = 0.0
-                                    twist_msg.twist.angular.y = 0.0
-                                    twist_msg.twist.angular.z = vth
+                                    odom_trans = self.set_state_transform(
+                                        current_time,
+                                        odom_trans,
+                                        self.x,
+                                        self.y,
+                                        self.th,
+                                        orientation,
+                                    )
+                                    twist_msg = self.set_twist_pkg(
+                                        current_time,
+                                        twist_msg,
+                                        str(self.cmd_vel_header_frame_id_),
+                                        vx,
+                                        vth,
+                                    )
 
                                     self.send_transforms(
                                         twist_msg, odom_msg, joint_state, odom_trans
@@ -479,66 +500,44 @@ class ControllerServer(LifecycleNode):
                                         * (right_motor_vel + left_motor_vel)
                                         / 2.0
                                     )
-                                    vy = 0.0
                                     vth = (
                                         self.tune_vel__
                                         * (right_motor_vel - left_motor_vel)
                                         / self.wheels_separation__
                                     )
 
-                                    delta_x = float(
-                                        (vx * cos(self.th) - vy * sin(self.th)) * dt
-                                    )
-                                    delta_y = float(
-                                        (vx * sin(self.th) + vy * cos(self.th)) * dt
-                                    )
-                                    delta_th = float(vth * dt)
-
-                                    self.x += delta_x
-                                    self.y += delta_y
-                                    self.th += delta_th
-
-                                    (
-                                        orientation.x,
-                                        orientation.y,
-                                        orientation.z,
-                                        orientation.w,
-                                    ) = tf_transformations.quaternion_from_euler(
-                                        0.0, 0.0, self.th
+                                    delta_x, delta_y, delta_th = self.odom_calc(
+                                        dt, vx, vth
                                     )
 
-                                    joint_state.header.stamp = current_time.to_msg()
-                                    joint_state.position = [self.x, self.x]
-                                    joint_state.velocity = [vx, vx]
-
-                                    odom_msg.header.stamp = current_time.to_msg()
-                                    odom_msg.pose.pose.position.x = self.x
-                                    odom_msg.pose.pose.position.y = self.y
-                                    odom_msg.pose.pose.position.z = 0.0
-                                    odom_msg.twist.twist.linear.x = vx
-                                    odom_msg.twist.twist.linear.y = 0.0
-                                    odom_msg.twist.twist.linear.z = 0.0
-                                    odom_msg.twist.twist.angular.x = 0.0
-                                    odom_msg.twist.twist.angular.y = 0.0
-                                    odom_msg.twist.twist.angular.z = vth
-                                    odom_msg.pose.pose.orientation = orientation
-
-                                    odom_trans.header.stamp = current_time.to_msg()
-                                    odom_trans.transform.translation.x = self.x
-                                    odom_trans.transform.translation.y = self.y
-                                    odom_trans.transform.translation.z = 0.0
-                                    odom_trans.transform.rotation = orientation
-
-                                    twist_msg.header.stamp = current_time.to_msg()
-                                    twist_msg.header.frame_id = str(
-                                        self.cmd_vel_header_frame_id_
+                                    joint_state = self.set_joint_state_pkg(
+                                        current_time, joint_state, vx
                                     )
-                                    twist_msg.twist.linear.x = vx
-                                    twist_msg.twist.linear.y = 0.0
-                                    twist_msg.twist.linear.z = 0.0
-                                    twist_msg.twist.angular.x = 0.0
-                                    twist_msg.twist.angular.y = 0.0
-                                    twist_msg.twist.angular.z = vth
+                                    odom_msg = self.set_odom_pkg(
+                                        current_time,
+                                        odom_msg,
+                                        self.x,
+                                        self.y,
+                                        vx,
+                                        vth,
+                                        self.th,
+                                        orientation,
+                                    )
+                                    odom_trans = self.set_state_transform(
+                                        current_time,
+                                        odom_trans,
+                                        self.x,
+                                        self.y,
+                                        self.th,
+                                        orientation,
+                                    )
+                                    twist_msg = self.set_twist_pkg(
+                                        current_time,
+                                        twist_msg,
+                                        str(self.cmd_vel_header_frame_id_),
+                                        vx,
+                                        vth,
+                                    )
 
                                     self.send_transforms(
                                         twist_msg, odom_msg, joint_state, odom_trans
@@ -571,56 +570,36 @@ class ControllerServer(LifecycleNode):
                                         not self.goal_arrived_
                                         or self.goal_arrived_ is None
                                     ):
-                                        (
-                                            orientation.x,
-                                            orientation.y,
-                                            orientation.z,
-                                            orientation.w,
-                                        ) = tf_transformations.quaternion_from_euler(
-                                            0.0, 0.0, 0.0
-                                        )
-                                        twist_msg.twist.linear.x = (
-                                            self.max_linear_velocity__
-                                        )
-                                        joint_state.header.stamp = current_time.to_msg()
-                                        joint_state.position = [0.0, 0.0]
-                                        joint_state.velocity = [
+                                        joint_state = self.set_joint_state_pkg(
+                                            current_time,
+                                            joint_state,
                                             self.max_linear_velocity__,
+                                        )
+                                        odom_msg = self.set_odom_pkg(
+                                            current_time,
+                                            odom_msg,
+                                            self.x,
+                                            self.y,
                                             self.max_linear_velocity__,
-                                        ]
-
-                                        odom_msg.header.stamp = current_time.to_msg()
-                                        odom_msg.pose.pose.position.x = 0.0
-                                        odom_msg.pose.pose.position.y = 0.0
-                                        odom_msg.pose.pose.position.z = 0.0
-                                        odom_msg.twist.twist.linear.x = (
-                                            self.max_linear_velocity__
+                                            0.0,
+                                            self.th,
+                                            orientation,
                                         )
-                                        odom_msg.twist.twist.linear.y = 0.0
-                                        odom_msg.twist.twist.linear.z = 0.0
-                                        odom_msg.twist.twist.angular.x = 0.0
-                                        odom_msg.twist.twist.angular.y = 0.0
-                                        odom_msg.twist.twist.angular.z = 0.0
-                                        odom_msg.pose.pose.orientation = orientation
-
-                                        odom_trans.header.stamp = current_time.to_msg()
-                                        odom_trans.transform.translation.x = 0.0
-                                        odom_trans.transform.translation.y = 0.0
-                                        odom_trans.transform.translation.z = 0.0
-                                        odom_trans.transform.rotation = orientation
-
-                                        twist_msg.header.stamp = current_time.to_msg()
-                                        twist_msg.header.frame_id = str(
-                                            self.cmd_vel_header_frame_id_
+                                        odom_trans = self.set_state_transform(
+                                            current_time,
+                                            odom_trans,
+                                            self.x,
+                                            self.y,
+                                            self.th,
+                                            orientation,
                                         )
-                                        twist_msg.twist.linear.x = (
-                                            self.max_linear_velocity__
+                                        twist_msg = self.set_twist_pkg(
+                                            current_time,
+                                            twist_msg,
+                                            str(self.cmd_vel_header_frame_id_),
+                                            self.max_linear_velocity__,
+                                            0.0,
                                         )
-                                        twist_msg.twist.linear.y = 0.0
-                                        twist_msg.twist.linear.z = 0.0
-                                        twist_msg.twist.angular.x = 0.0
-                                        twist_msg.twist.angular.y = 0.0
-                                        twist_msg.twist.angular.z = 0.0
 
                                         self.send_transforms(
                                             twist_msg, odom_msg, joint_state, odom_trans
@@ -693,16 +672,16 @@ class ControllerServer(LifecycleNode):
         # self.got_temp_package_ = False
 
     def set_twist_pkg(
-        self, current_time, set_twist_msg: TwistStamped, frame_id, lx, az
+        self, current_time, set_twist_msg: TwistStamped, frame_id, vx, vth
     ) -> TwistStamped:
         set_twist_msg.header.stamp = current_time.to_msg()
         set_twist_msg.header.frame_id = frame_id
-        set_twist_msg.twist.linear.x = lx
+        set_twist_msg.twist.linear.x = vx
         set_twist_msg.twist.linear.y = 0.0
         set_twist_msg.twist.linear.z = 0.0
         set_twist_msg.twist.angular.x = 0.0
         set_twist_msg.twist.angular.y = 0.0
-        set_twist_msg.twist.angular.z = az
+        set_twist_msg.twist.angular.z = vth
         return set_twist_msg
 
     def set_odom_pkg(
@@ -711,36 +690,63 @@ class ControllerServer(LifecycleNode):
         set_odom_msg: Odometry,
         pos_x,
         pos_y,
-        lx,
-        az,
+        vx,
+        vth,
+        th,
         set_orientation: Quaternion,
     ) -> Odometry:
         set_odom_msg.header.stamp = current_time.to_msg()
         set_odom_msg.pose.pose.position.x = pos_x
         set_odom_msg.pose.pose.position.y = pos_y
         set_odom_msg.pose.pose.position.z = 0.0
-        set_odom_msg.twist.twist.linear.x = lx
+        set_odom_msg.twist.twist.linear.x = vx
         set_odom_msg.twist.twist.linear.y = 0.0
         set_odom_msg.twist.twist.linear.z = 0.0
         set_odom_msg.twist.twist.angular.x = 0.0
         set_odom_msg.twist.twist.angular.y = 0.0
-        set_odom_msg.twist.twist.angular.z = az
-        set_odom_msg.pose.pose.orientation = self.orientation_calc(set_orientation, az)
+        set_odom_msg.twist.twist.angular.z = vth
+        set_odom_msg.pose.pose.orientation = self.orientation_calc(set_orientation, th)
         return set_odom_msg
 
     def set_joint_state_pkg(
-        self, set_joint_state: TransformStamped
-    ) -> TransformStamped:
-        pass
+        self, current_time, set_joint_state: JointState, vx
+    ) -> JointState:
+        set_joint_state.header.stamp = current_time.to_msg()
+        set_joint_state.position = [self.x, self.x]
+        set_joint_state.velocity = [vx, vx]
+        return set_joint_state
 
-    def orientation_calc(self, set_orientation: Quaternion, az):
+    def set_state_transform(
+        self,
+        current_time,
+        set_odom_trans: TransformStamped,
+        pos_x,
+        pos_y,
+        th,
+        set_orientation: Quaternion,
+    ) -> TransformStamped:
+        set_odom_trans.header.stamp = current_time.to_msg()
+        set_odom_trans.transform.translation.x = pos_x
+        set_odom_trans.transform.translation.y = pos_y
+        set_odom_trans.transform.translation.z = 0.0
+        set_odom_trans.transform.rotation = self.orientation_calc(set_orientation, th)
+        return set_odom_trans
+
+    def orientation_calc(self, set_orientation: Quaternion, az) -> Quaternion:
         set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
             tf_transformations.quaternion_from_euler(0.0, 0.0, az)
         )
         return set_orientation
 
-    def odom_calc(self):
-        pass
+    def odom_calc(self, dt, vx, vth, vy=0.0) -> float:
+        delta_x = float((vx * cos(self.th) - vy * sin(self.th)) * dt)
+        delta_y = float((vx * sin(self.th) + vy * cos(self.th)) * dt)
+        delta_th = float(vth * dt)
+
+        self.x += delta_x
+        self.y += delta_y
+        self.th += delta_th
+        return delta_x, delta_y, delta_th
 
     def send_transforms(
         self,
