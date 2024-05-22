@@ -440,61 +440,61 @@ class ControllerServer(LifecycleNode):
                                     # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
                                     if self.goal_pos__ > 0.0:
                                         if (self.slow_down_inc_ == 1) and self.x >= (
-                                            0.45 * (self.goal_pos__ + current_pos_x)
-                                        ):
-                                            self.tune_vel__ = 0.5
-                                            self.slow_down_inc_ += 1
-                                            self.changed_velocity_flag_ = True
-                                        elif (self.slow_down_inc_ == 2) and self.x >= (
                                             0.85 * (self.goal_pos__)
                                         ):
                                             self.tune_vel__ = 0.5
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
+                                        # elif (self.slow_down_inc_ == 2) and self.x >= (
+                                        #     0.95 * (self.goal_pos__)
+                                        # ):
+                                        #     self.tune_vel__ = 0.5
+                                        #     self.slow_down_inc_ += 1
+                                        #     self.changed_velocity_flag_ = True
                                     elif self.goal_pos__ < 0.0:
                                         if (self.slow_down_inc_ == 1) and self.x <= (
-                                            0.45 * (self.goal_pos__ + current_pos_x)
-                                        ):
-                                            self.tune_vel__ = 0.5
-                                            self.slow_down_inc_ += 1
-                                            self.changed_velocity_flag_ = True
-                                        elif (self.slow_down_inc_ == 2) and self.x <= (
                                             0.85 * (self.goal_pos__)
                                         ):
                                             self.tune_vel__ = 0.5
                                             self.slow_down_inc_ += 1
                                             self.changed_velocity_flag_ = True
+                                        # elif (self.slow_down_inc_ == 2) and self.x <= (
+                                        #     0.95 * (self.goal_pos__)
+                                        # ):
+                                        #     self.tune_vel__ = 0.5
+                                        #     self.slow_down_inc_ += 1
+                                        #     self.changed_velocity_flag_ = True
                                     else:
-                                        if self.x > 0:
+                                        if self.x > 0.0:
                                             if (
                                                 self.slow_down_inc_ == 1
-                                            ) and self.x <= (
-                                                0.45 * (self.goal_pos__ + current_pos_x)
-                                            ):
+                                            ) and self.x <= (0.85 * 0.2):
                                                 self.tune_vel__ = 0.5
                                                 self.slow_down_inc_ += 1
                                                 self.changed_velocity_flag_ = True
-                                            elif (
-                                                self.slow_down_inc_ == 2
-                                            ) and self.x <= (0.85 * (self.goal_pos__ + current_pos_x)):
-                                                self.tune_vel__ = 0.5
-                                                self.slow_down_inc_ += 1
-                                                self.changed_velocity_flag_ = True
-                                        elif self.x < 0:
+                                            # elif (
+                                            #     self.slow_down_inc_ == 2
+                                            # ) and self.x <= (
+                                            #     0.95 * (self.goal_pos__ + current_pos_x)
+                                            # ):
+                                            #     self.tune_vel__ = 0.5
+                                            #     self.slow_down_inc_ += 1
+                                            #     self.changed_velocity_flag_ = True
+                                        elif self.x < 0.0:
                                             if (
                                                 self.slow_down_inc_ == 1
-                                            ) and self.x >= (
-                                                0.45 * (self.goal_pos__ + current_pos_x)
-                                            ):
+                                            ) and self.x >= (0.85 * -0.2):
                                                 self.tune_vel__ = 0.5
                                                 self.slow_down_inc_ += 1
                                                 self.changed_velocity_flag_ = True
-                                            elif (
-                                                self.slow_down_inc_ == 2
-                                            ) and self.x >= (0.85 * (self.goal_pos__ + current_pos_x)):
-                                                self.tune_vel__ = 0.5
-                                                self.slow_down_inc_ += 1
-                                                self.changed_velocity_flag_ = True
+                                            # elif (
+                                            #     self.slow_down_inc_ == 2
+                                            # ) and self.x >= (
+                                            #     0.95 * (self.goal_pos__ + current_pos_x)
+                                            # ):
+                                            #     self.tune_vel__ = 0.5
+                                            #     self.slow_down_inc_ += 1
+                                            #     self.changed_velocity_flag_ = True
 
                                     # END
 
@@ -943,43 +943,6 @@ class ControllerServer(LifecycleNode):
         self.odom_publisher_.publish(odom_msg)
         self.joint_state_publisher_.publish(joint_state)
         self.joint_state_broadcaster_.sendTransform(odom_trans)
-
-    ############################### YET TO BE IMPLEMENTED ###############################
-
-    # def timeout_subscription():
-    #     with self.goal_lock_:
-    #         # Set goal_handle as class attribute so it can be used outside of this callback
-    #         self.goal_handle_ = goal_handle
-    #     sub_time_out += 1
-    #     if sub_time_out == 30:
-    #         feedback.process = "Subscription timed out. Aborting current goal."
-    #         goal_handle.publish_feedback(feedback)
-    #         result.result_msg = "Goal finished due to subscription timeout"
-    #         sub_time_out = 0
-    #         starting_time = self.get_clock().now()
-    #         x = 0.0
-    #         y = 0.0
-    #         th = 0.0
-    #         dt = 0.0
-    #         return result
-
-    # def handle_accepted_callback(self, goal_handle: ServerGoalHandle):
-    #     # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
-    #     with self.goal_lock_:
-    #         if self.goal_handle_ is not None:
-    #             self.goal_queue_.append(goal_handle)
-    #         else:
-    #             goal_handle.execute()
-
-    # def next_in_queue(self):
-    #     # Queue will be implemented when we use Nav2 for sending the goals to the simple api fw
-    #     with self.goal_lock_:
-    #         if len(self.goal_queue_) > 0:
-    #             self.goal_queue_.pop(0).execute()
-    #         else:
-    #             self.goal_handle_ = None
-
-    #####################################################################################
 
 
 def main(args=None):
