@@ -59,7 +59,7 @@ class ControllerManager(Node):
         self, request: ManagerServices.Request, response: ManagerServices.Response
     ):
         # Define the regex pattern
-        goal_pattern = r"(set_goal)_(\w) = (\d+\.\d+)"
+        goal_pattern = r"(set_goal)_(\w) = (-?\d+\.\d+)"
         cancel_pattern = r"(cancel)"
 
         # Match the pattern with the request string
