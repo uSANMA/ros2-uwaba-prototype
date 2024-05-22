@@ -1,6 +1,6 @@
-[![Static Badge](https://img.shields.io/badge/version-v0.0.47--alpha-teal)](https://github.com/uSANMA/ros2-uwaba-prototype)
+[![Static Badge](https://img.shields.io/badge/version-v0.0.48--alpha-teal)](https://github.com/uSANMA/ros2-uwaba-prototype)
 # uWABA NAVIGATION AND CONTROLLER SYSTEMS
-This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_control systems. Here will be displayed every file and package related to its development.
+This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_control in Python[^1] systems. Here will be displayed every file and package related to its development.
 
 ## uSANMA SYSTEM'S FLOWCHART
 <p align="center">
@@ -13,17 +13,18 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
 - [x] Add [meshes](https://github.com/uSANMA/ros2-uwaba-prototype/tree/alpha/packages/src/uwaba_prototype_description/meshes/dae) file from uwaba's model
 - Config directory implementations:
     - [ ] Implement Extended Kalman Filter file ([ekf.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/ekf.yaml))
-    - [ ] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/nav2_params.yaml))[^1]
+    - [ ] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/nav2_params.yaml))[^2]
 - Launch file implementations:
     - [x] Robot State Publisher node
     - [x] Joint State Publisher node
     - [x] RViz2 node
-    - [ ] Robot Stack node
+    - [x] Robot Stack node
     - [ ] Robot Localization node
-    - [ ] `nav2_bringup`[^1] node
+    - [ ] `nav2_bringup`[^2] node
     
 
-[^1]: The `nav2_params.yaml` file will be launched within `nav2_bringup` tool.
+[^1]: We did a custom ros2_control in Python for simplicity of code.
+[^2]: The `nav2_params.yaml` file will be launched within `nav2_bringup` tool.
 
 <!-- Below are some examples on git's README text formatting -->
 <!-- ### ODOMETRY

@@ -120,12 +120,12 @@ class UrosEmulator(Node):
             self.left_wheel_vel_ = float(
                 self.linear_x_
                 - 0.5 * self.wheel_distance_ * self.angular_z_
-                + random.uniform(-0.01, 0.01)
+                # + random.uniform(-0.01, 0.01)
             )
             self.right_wheel_vel_ = float(
                 self.linear_x_
                 + 0.5 * self.wheel_distance_ * self.angular_z_
-                + random.uniform(-0.01, 0.01)
+                # + random.uniform(-0.01, 0.01)
             )
         else:
             self.left_wheel_vel_ = (

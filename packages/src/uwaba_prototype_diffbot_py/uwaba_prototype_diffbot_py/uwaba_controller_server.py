@@ -330,7 +330,6 @@ class ControllerServer(LifecycleNode):
         request = goal_handle.request.request
         if request == "set_goal":
             self.goal_pos__ = goal_handle.request.goal_request
-            self.goal_arrived_ = False
 
         self.get_logger().info(f"Request: {request}")
         action_frame_id = goal_handle.request.frame_id
@@ -359,7 +358,10 @@ class ControllerServer(LifecycleNode):
 
         count_starting = 0
         total_elapsed_time = 0.0
-
+        self.slow_down_inc_ = 1
+        current_pos_x = self.x
+        self.changed_velocity_flag_ = False
+        
         while rclpy.ok():
             if not goal_handle.is_active:
                 result.result_msg = "Preempted by another goal, or node deactivated."
@@ -422,6 +424,7 @@ class ControllerServer(LifecycleNode):
                                         )
                                         # vth = 0.0
                                         self.changed_velocity_flag_ = False
+
                                     else:
                                         vx = (right_motor_vel + left_motor_vel) / 2.0
                                         vth = (
@@ -434,19 +437,18 @@ class ControllerServer(LifecycleNode):
                                     )
 
                                     # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
-                                    if (self.goal_pos__) > 0:
-                                        if self.slow_down_inc_ == 1 and self.x >= (
-                                            0.45 * (self.goal_pos__)
-                                        ):
-                                            self.tune_vel__ = 0.25
-                                            self.slow_down_inc_ += 1
-                                            self.changed_velocity_flag_ = True
-                                        elif self.slow_down_inc_ == 2 and self.x >= (
-                                            0.85 * (self.goal_pos__)
-                                        ):
-                                            self.tune_vel__ = 0.25
-                                            self.slow_down_inc_ += 1
-                                            self.changed_velocity_flag_ = True
+                                    if (self.slow_down_inc_ == 1) and self.x >= (
+                                        0.45 * (self.goal_pos__ + current_pos_x)
+                                    ):
+                                        self.tune_vel__ = 0.5
+                                        self.slow_down_inc_ += 1
+                                        self.changed_velocity_flag_ = True
+                                    elif (self.slow_down_inc_ == 2) and self.x >= (
+                                        0.85 * (self.goal_pos__)
+                                    ):
+                                        self.tune_vel__ = 0.5
+                                        self.slow_down_inc_ += 1
+                                        self.changed_velocity_flag_ = True
                                     # END
 
                                     joint_state = self.set_joint_state_pkg(
@@ -485,10 +487,10 @@ class ControllerServer(LifecycleNode):
                                     total_elapsed_time += dt
                                     starting_time = current_time
 
-                                    feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                    feedback.process = f"\n -- Slow down inc: {self.slow_down_inc_}\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                     goal_handle.publish_feedback(feedback)
 
-                                    if self.x >= self.goal_pos__:
+                                    if self.x >= (self.goal_pos__):
                                         self.goal_arrived_ = True
 
                                     self.reset_flags()
@@ -548,6 +550,7 @@ class ControllerServer(LifecycleNode):
                                         feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                         goal_handle.publish_feedback(feedback)
                                         goal_handle.succeed()
+                                        self.goal_arrived_ = False
 
                                         self.reset_flags()
 
@@ -555,7 +558,7 @@ class ControllerServer(LifecycleNode):
                                     else:
                                         total_elapsed_time += dt
                                         starting_time = current_time
-                                        feedback.process = f"\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        feedback.process = f"\n -- Slow down inc: {self.slow_down_inc_}\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                         goal_handle.publish_feedback(feedback)
                                         self.reset_flags()
 
