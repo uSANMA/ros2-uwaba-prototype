@@ -170,7 +170,7 @@ class ControllerManager(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info("Success")
         elif status == GoalStatus.STATUS_ABORTED:
-            self.get_logger().error("Aborted")
+            self.get_logger().warn("Aborted")
         elif status == GoalStatus.STATUS_CANCELED:
             self.get_logger().warn("Canceled")
         self.get_logger().info(f"Result: {result.result_msg} with Status: {status}")

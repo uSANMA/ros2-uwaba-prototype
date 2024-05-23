@@ -7,7 +7,6 @@ import numpy as np
 from math import sin, cos, pi
 
 from rclpy.lifecycle import LifecycleNode
-from rclpy.node import Node
 from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
 from rclpy.qos import QoSProfile
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
@@ -129,7 +128,6 @@ class ControllerServer(LifecycleNode):
             ControlActions,
             "uwaba_prototype/control_server",
             goal_callback=self.goal_callback,
-            # handle_accepted_callback=self.handle_accepted_callback,          # Won't implement goal queue for now
             cancel_callback=self.cancel_callback,
             execute_callback=self.execute_callback,
             callback_group=ReentrantCallbackGroup(),
@@ -144,6 +142,27 @@ class ControllerServer(LifecycleNode):
             JointState, f"{self.joint_state_topic__}", self.qos_profile_
         )
         self.get_logger().info("Controller action server has started.")
+        self.joint_state = JointState()
+        self.joint_state.name = [
+            "Left_sprocket_base_joint",
+            "Right_sprocket_base_joint",
+        ]
+        self.joint_state.header.frame_id = "wheels_states"
+
+        self.orientation = Quaternion()
+
+        self.odom_trans = TransformStamped()
+        self.odom_trans.header.frame_id = "odom"
+        self.odom_trans.child_frame_id = "base_footprint"
+
+        self.twist_msg = TwistStamped()
+
+        self.odom_msg = Odometry()
+        self.odom_msg.header.frame_id = "odom"
+        self.odom_msg.child_frame_id = "base_footprint"
+        self.odom_msg.pose.covariance = self.covariance_fill_
+        self.odom_msg.twist.covariance = self.covariance_fill_
+
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -192,8 +211,8 @@ class ControllerServer(LifecycleNode):
         self.server_activated_ = False
         with self.goal_lock_:
             if self.goal_handle_ is not None and self.goal_handle_.is_active:
+                self.msgs_began_ = False
                 self.goal_handle_.abort()
-            # self.goal_queue_ = []
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -248,19 +267,16 @@ class ControllerServer(LifecycleNode):
         if not self.server_activated_:
             self.get_logger().warn("Server not yet activated.")
             return GoalResponse.REJECT
-        # elif goal_request.request == "set_goal" and goal_request.goal_request == 0.0:
-        #     self.get_logger().warn("Goal requested at x = 0.0. Rejecting goal...")
-        #     return GoalResponse.REJECT
 
         if goal_request.request == "set_goal":
             self.get_logger().info(
-                f"Goal {goal_request.request} accepted. Destination at x: {goal_request.goal_request}"
+                f"Goal {goal_request.request} accepted. Destination was set at x: {goal_request.goal_request}"
             )
             return GoalResponse.ACCEPT
 
         elif goal_request.request == "transform":
             self.get_logger().info(
-                f"Goal {goal_request.request} accepted. Destination at x: {self.goal_pos__}"
+                f"Goal {goal_request.request} accepted. Destination was set at x: {self.goal_pos__}"
             )
             return GoalResponse.ACCEPT
 
@@ -268,58 +284,52 @@ class ControllerServer(LifecycleNode):
             # Policy: Goal preemption (must be after some goal are already valid thus preempting)
             if self.goal_handle_ is not None and self.goal_handle_.is_active:
                 self.get_logger().warn("A goal is already active, aborting new goal.")
+                self.msgs_began_ = False
                 self.goal_handle_.abort()
 
     def cancel_callback(self, goal_handle: ServerGoalHandle) -> CancelResponse:
+
+        with self.goal_lock_:
+            self.goal_handle_ = goal_handle
+
         self.get_logger().warn(
             f"Received a cancel request, canceling with status {goal_handle.status}"
         )
+
+        feedback = ControlActions.Feedback()
         current_time = self.get_clock().now()
-        joint_state = JointState()
-        joint_state.name = ["Left_sprocket_base_joint", "Right_sprocket_base_joint"]
-        joint_state.header.frame_id = "wheels_states"
-
-        orientation = Quaternion()
-
-        odom_trans = TransformStamped()
-        odom_trans.header.frame_id = "odom"
-        odom_trans.child_frame_id = "base_footprint"
-
-        twist_msg = TwistStamped()
-
-        odom_msg = Odometry()
-        odom_msg.header.frame_id = "odom"
-        odom_msg.child_frame_id = "base_footprint"
-        odom_msg.pose.covariance = self.covariance_fill_
-        odom_msg.twist.covariance = self.covariance_fill_
-
-        odom_msg = self.set_odom_pkg(
+        self.odom_msg = self.set_odom_pkg(
             current_time,
-            odom_msg,
+            self.odom_msg,
             self.x,
             self.y,
             0.0,
             0.0,
             self.th,
-            orientation,
+            self.orientation,
         )
-        odom_trans = self.set_state_transform(
+        self.odom_trans = self.set_state_transform(
             current_time,
-            odom_trans,
+            self.odom_trans,
             self.x,
             self.y,
             self.th,
-            orientation,
+            self.orientation,
         )
-        twist_msg = self.set_twist_pkg(
+        self.twist_msg = self.set_twist_pkg(
             current_time,
-            twist_msg,
+            self.twist_msg,
             str(self.cmd_vel_header_frame_id_),
             0.0,
             0.0,
         )
-        self.send_transforms(twist_msg, odom_msg, joint_state, odom_trans)
-        self.goal_handle_.abort()
+        self.send_transforms(
+            self.twist_msg, self.odom_msg, self.joint_state, self.odom_trans
+        )
+        feedback.process = f"--> Goal cancelled successfully.\n--> Robot is currently at:\n---> x:\t{self.x}\n---> y:\t{self.y}\n---> th:\t{self.th}\n"
+        goal_handle.publish_feedback(feedback)
+        self.msgs_began_ = False
+        goal_handle.abort()
         return CancelResponse.ACCEPT
 
     def execute_callback(self, goal_handle: ServerGoalHandle) -> ControlActions:
@@ -337,24 +347,6 @@ class ControllerServer(LifecycleNode):
 
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
-
-        joint_state = JointState()
-        joint_state.name = ["Left_sprocket_base_joint", "Right_sprocket_base_joint"]
-        joint_state.header.frame_id = "wheels_states"
-
-        orientation = Quaternion()
-
-        odom_trans = TransformStamped()
-        odom_trans.header.frame_id = "odom"
-        odom_trans.child_frame_id = "base_footprint"
-
-        twist_msg = TwistStamped()
-
-        odom_msg = Odometry()
-        odom_msg.header.frame_id = "odom"
-        odom_msg.child_frame_id = "base_footprint"
-        odom_msg.pose.covariance = self.covariance_fill_
-        odom_msg.twist.covariance = self.covariance_fill_
 
         count_starting = 0
         total_elapsed_time = 0.0
@@ -498,37 +490,40 @@ class ControllerServer(LifecycleNode):
 
                                     # END
 
-                                    joint_state = self.set_joint_state_pkg(
-                                        current_time, joint_state, vx
+                                    self.joint_state = self.set_joint_state_pkg(
+                                        current_time, self.joint_state, vx
                                     )
-                                    odom_msg = self.set_odom_pkg(
+                                    self.odom_msg = self.set_odom_pkg(
                                         current_time,
-                                        odom_msg,
+                                        self.odom_msg,
                                         self.x,
                                         self.y,
                                         vx,
                                         vth,
                                         self.th,
-                                        orientation,
+                                        self.orientation,
                                     )
-                                    odom_trans = self.set_state_transform(
+                                    self.odom_trans = self.set_state_transform(
                                         current_time,
-                                        odom_trans,
+                                        self.odom_trans,
                                         self.x,
                                         self.y,
                                         self.th,
-                                        orientation,
+                                        self.orientation,
                                     )
-                                    twist_msg = self.set_twist_pkg(
+                                    self.twist_msg = self.set_twist_pkg(
                                         current_time,
-                                        twist_msg,
+                                        self.twist_msg,
                                         str(self.cmd_vel_header_frame_id_),
                                         vx,
                                         vth,
                                     )
 
                                     self.send_transforms(
-                                        twist_msg, odom_msg, joint_state, odom_trans
+                                        self.twist_msg,
+                                        self.odom_msg,
+                                        self.joint_state,
+                                        self.odom_trans,
                                     )
 
                                     total_elapsed_time += dt
@@ -567,45 +562,49 @@ class ControllerServer(LifecycleNode):
                                         dt, vx, vth
                                     )
 
-                                    joint_state = self.set_joint_state_pkg(
-                                        current_time, joint_state, vx
+                                    self.joint_state = self.set_joint_state_pkg(
+                                        current_time, self.joint_state, vx
                                     )
-                                    odom_msg = self.set_odom_pkg(
+                                    self.odom_msg = self.set_odom_pkg(
                                         current_time,
-                                        odom_msg,
+                                        self.odom_msg,
                                         self.x,
                                         self.y,
                                         vx,
                                         vth,
                                         self.th,
-                                        orientation,
+                                        self.orientation,
                                     )
-                                    odom_trans = self.set_state_transform(
+                                    self.odom_trans = self.set_state_transform(
                                         current_time,
-                                        odom_trans,
+                                        self.odom_trans,
                                         self.x,
                                         self.y,
                                         self.th,
-                                        orientation,
+                                        self.orientation,
                                     )
-                                    twist_msg = self.set_twist_pkg(
+                                    self.twist_msg = self.set_twist_pkg(
                                         current_time,
-                                        twist_msg,
+                                        self.twist_msg,
                                         str(self.cmd_vel_header_frame_id_),
                                         vx,
                                         vth,
                                     )
 
                                     self.send_transforms(
-                                        twist_msg, odom_msg, joint_state, odom_trans
+                                        self.twist_msg,
+                                        self.odom_msg,
+                                        self.joint_state,
+                                        self.odom_trans,
                                     )
 
                                     if right_motor_vel == 0.0 and left_motor_vel == 0.0:
                                         result.result_msg = f"Arrived at the set destination: x= {self.x}, y= {self.y}, theta= {self.th} in {total_elapsed_time} seconds"
-                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{twist_msg.twist.linear.x}\n - theta:\t\t\t{twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{self.twist_msg.twist.linear.x}\n - theta:\t\t\t{self.twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
                                         goal_handle.publish_feedback(feedback)
                                         goal_handle.succeed()
                                         self.goal_arrived_ = False
+                                        self.msgs_began_ = False
 
                                         self.reset_flags()
 
@@ -625,39 +624,42 @@ class ControllerServer(LifecycleNode):
                                     if (
                                         right_motor_vel == 0.0 and left_motor_vel == 0.0
                                     ) and (not self.goal_arrived_):
-                                        joint_state = self.set_joint_state_pkg(
+                                        self.joint_state = self.set_joint_state_pkg(
                                             current_time,
-                                            joint_state,
+                                            self.joint_state,
                                             self.max_linear_velocity__,
                                         )
-                                        odom_msg = self.set_odom_pkg(
+                                        self.odom_msg = self.set_odom_pkg(
                                             current_time,
-                                            odom_msg,
+                                            self.odom_msg,
                                             self.x,
                                             self.y,
                                             self.max_linear_velocity__,
                                             0.0,
                                             self.th,
-                                            orientation,
+                                            self.orientation,
                                         )
-                                        odom_trans = self.set_state_transform(
+                                        self.odom_trans = self.set_state_transform(
                                             current_time,
-                                            odom_trans,
+                                            self.odom_trans,
                                             self.x,
                                             self.y,
                                             self.th,
-                                            orientation,
+                                            self.orientation,
                                         )
-                                        twist_msg = self.set_twist_pkg(
+                                        self.twist_msg = self.set_twist_pkg(
                                             current_time,
-                                            twist_msg,
+                                            self.twist_msg,
                                             str(self.cmd_vel_header_frame_id_),
                                             self.max_linear_velocity__,
                                             0.0,
                                         )
 
                                         self.send_transforms(
-                                            twist_msg, odom_msg, joint_state, odom_trans
+                                            self.twist_msg,
+                                            self.odom_msg,
+                                            self.joint_state,
+                                            self.odom_trans,
                                         )
 
                                         self.reset_flags()
@@ -665,39 +667,42 @@ class ControllerServer(LifecycleNode):
                                     if (
                                         right_motor_vel == 0.0 and left_motor_vel == 0.0
                                     ) and (not self.goal_arrived_):
-                                        joint_state = self.set_joint_state_pkg(
+                                        self.joint_state = self.set_joint_state_pkg(
                                             current_time,
-                                            joint_state,
+                                            self.joint_state,
                                             -self.max_linear_velocity__,
                                         )
-                                        odom_msg = self.set_odom_pkg(
+                                        self.odom_msg = self.set_odom_pkg(
                                             current_time,
-                                            odom_msg,
+                                            self.odom_msg,
                                             self.x,
                                             self.y,
                                             -self.max_linear_velocity__,
                                             0.0,
                                             self.th,
-                                            orientation,
+                                            self.orientation,
                                         )
-                                        odom_trans = self.set_state_transform(
+                                        self.odom_trans = self.set_state_transform(
                                             current_time,
-                                            odom_trans,
+                                            self.odom_trans,
                                             self.x,
                                             self.y,
                                             self.th,
-                                            orientation,
+                                            self.orientation,
                                         )
-                                        twist_msg = self.set_twist_pkg(
+                                        self.twist_msg = self.set_twist_pkg(
                                             current_time,
-                                            twist_msg,
+                                            self.twist_msg,
                                             str(self.cmd_vel_header_frame_id_),
                                             -self.max_linear_velocity__,
                                             0.0,
                                         )
 
                                         self.send_transforms(
-                                            twist_msg, odom_msg, joint_state, odom_trans
+                                            self.twist_msg,
+                                            self.odom_msg,
+                                            self.joint_state,
+                                            self.odom_trans,
                                         )
 
                                         self.reset_flags()
@@ -707,42 +712,42 @@ class ControllerServer(LifecycleNode):
                                             right_motor_vel == 0.0
                                             and left_motor_vel == 0.0
                                         ) and (not self.goal_arrived_):
-                                            joint_state = self.set_joint_state_pkg(
+                                            self.joint_state = self.set_joint_state_pkg(
                                                 current_time,
-                                                joint_state,
+                                                self.joint_state,
                                                 -self.max_linear_velocity__,
                                             )
-                                            odom_msg = self.set_odom_pkg(
+                                            self.odom_msg = self.set_odom_pkg(
                                                 current_time,
-                                                odom_msg,
+                                                self.odom_msg,
                                                 self.x,
                                                 self.y,
                                                 -self.max_linear_velocity__,
                                                 0.0,
                                                 self.th,
-                                                orientation,
+                                                self.orientation,
                                             )
-                                            odom_trans = self.set_state_transform(
+                                            self.odom_trans = self.set_state_transform(
                                                 current_time,
-                                                odom_trans,
+                                                self.odom_trans,
                                                 self.x,
                                                 self.y,
                                                 self.th,
-                                                orientation,
+                                                self.orientation,
                                             )
-                                            twist_msg = self.set_twist_pkg(
+                                            self.twist_msg = self.set_twist_pkg(
                                                 current_time,
-                                                twist_msg,
+                                                self.twist_msg,
                                                 str(self.cmd_vel_header_frame_id_),
                                                 -self.max_linear_velocity__,
                                                 0.0,
                                             )
 
                                             self.send_transforms(
-                                                twist_msg,
-                                                odom_msg,
-                                                joint_state,
-                                                odom_trans,
+                                                self.twist_msg,
+                                                self.odom_msg,
+                                                self.joint_state,
+                                                self.odom_trans,
                                             )
 
                                             self.reset_flags()
@@ -751,42 +756,42 @@ class ControllerServer(LifecycleNode):
                                             right_motor_vel == 0.0
                                             and left_motor_vel == 0.0
                                         ) and (not self.goal_arrived_):
-                                            joint_state = self.set_joint_state_pkg(
+                                            self.joint_state = self.set_joint_state_pkg(
                                                 current_time,
-                                                joint_state,
+                                                self.joint_state,
                                                 self.max_linear_velocity__,
                                             )
-                                            odom_msg = self.set_odom_pkg(
+                                            self.odom_msg = self.set_odom_pkg(
                                                 current_time,
-                                                odom_msg,
+                                                self.odom_msg,
                                                 self.x,
                                                 self.y,
                                                 self.max_linear_velocity__,
                                                 0.0,
                                                 self.th,
-                                                orientation,
+                                                self.orientation,
                                             )
-                                            odom_trans = self.set_state_transform(
+                                            self.odom_trans = self.set_state_transform(
                                                 current_time,
-                                                odom_trans,
+                                                self.odom_trans,
                                                 self.x,
                                                 self.y,
                                                 self.th,
-                                                orientation,
+                                                self.orientation,
                                             )
-                                            twist_msg = self.set_twist_pkg(
+                                            self.twist_msg = self.set_twist_pkg(
                                                 current_time,
-                                                twist_msg,
+                                                self.twist_msg,
                                                 str(self.cmd_vel_header_frame_id_),
                                                 self.max_linear_velocity__,
                                                 0.0,
                                             )
 
                                             self.send_transforms(
-                                                twist_msg,
-                                                odom_msg,
-                                                joint_state,
-                                                odom_trans,
+                                                self.twist_msg,
+                                                self.odom_msg,
+                                                self.joint_state,
+                                                self.odom_trans,
                                             )
 
                                             self.reset_flags()
@@ -843,6 +848,17 @@ class ControllerServer(LifecycleNode):
                 self.got_temp_package_ = True
 
     def timing_function(self):
+        if not self.msgs_began_:
+            self.orientation = self.orientation_calc(self.orientation, self.th)
+            trans = self.set_state_transform(
+                self.get_clock().now(),
+                self.odom_trans,
+                self.x,
+                self.y,
+                self.th,
+                self.orientation,
+            )
+            self.send_transforms(odom_trans=trans)
         if not self.got_timing_ or self.got_timing_ is None:
             with self.timing_lock_:
                 self.got_timing_ = True
@@ -939,10 +955,14 @@ class ControllerServer(LifecycleNode):
         joint_state: JointState = None,
         odom_trans: TransformStamped = None,
     ):
-        self.send_cmd_vel_back_.publish(twist_msg)
-        self.odom_publisher_.publish(odom_msg)
-        self.joint_state_publisher_.publish(joint_state)
-        self.joint_state_broadcaster_.sendTransform(odom_trans)
+        if twist_msg is not None:
+            self.send_cmd_vel_back_.publish(twist_msg)
+        if odom_msg is not None:
+            self.odom_publisher_.publish(odom_msg)
+        if joint_state is not None:
+            self.joint_state_publisher_.publish(joint_state)
+        if odom_trans is not None:
+            self.joint_state_broadcaster_.sendTransform(odom_trans)
 
 
 def main(args=None):
