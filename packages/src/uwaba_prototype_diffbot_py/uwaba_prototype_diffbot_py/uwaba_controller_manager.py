@@ -59,7 +59,7 @@ class ControllerManager(Node):
         self, request: ManagerServices.Request, response: ManagerServices.Response
     ):
         # Define the regex pattern
-        goal_pattern = r"(set_goal)_(\w) = (-?\d+\.\d+)"
+        goal_pattern = r"(set_goal)_(\w) = (-?\d+\.\d+(\,\d+\.\d+)?)"
         cancel_pattern = r"(cancel)"
 
         # Match the pattern with the request string
@@ -82,6 +82,16 @@ class ControllerManager(Node):
                     response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
                     self.send_goal_from_service(action, self.action_request_service_)
                     return response
+                # elif axis == "th":
+                #     self.action_request_service_ = float(value)
+                #     response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
+                #     self.send_goal_from_service(action, self.action_request_service_)
+                #     return response
+                # elif axis == "x_th":
+                #     self.action_request_service_ = float(value)
+                #     response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
+                #     self.send_goal_from_service(action, self.action_request_service_)
+                #     return response
                 else:
                     self.get_logger().warn(
                         "The goal to this axis is not yet implemented."
@@ -123,7 +133,7 @@ class ControllerManager(Node):
             self.transition_.label = "activate"
             self.change_state(self.transition_)
             self.get_logger().info("Activating OK, now active")
-            self.send_goal(self.goal_child_frame_id_, self.goal_request_)
+            # self.send_goal(self.goal_child_frame_id_, self.goal_request_)
         else:
             self.get_logger().warn(
                 "Server not in a state to be initialized, now trying to deactivate it:"

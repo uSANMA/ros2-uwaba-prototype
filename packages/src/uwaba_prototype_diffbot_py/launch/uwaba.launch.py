@@ -20,6 +20,14 @@ def generate_launch_description():
         [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "params.yaml"]
     )
 
+    agent_node = Node(
+        package='micro_ros_agent',
+        executable='micro_ros_agent',
+        name='micro_ros_agent',
+        arguments=["udp4", "-p", "8888", "-v6"],
+        output="screen"
+    )
+    
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
         executable="uwaba_controller_manager",
@@ -82,6 +90,7 @@ def generate_launch_description():
                 default_value=default_rviz_config_path,
                 description="Absolute path to rviz config file",
             ),
+            agent_node,
             server_node,
             client_node,
             joint_state_publisher_node,

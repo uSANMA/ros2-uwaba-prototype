@@ -13,6 +13,7 @@
   <depend>std_msgs</depend>
   <depend>tf2_ros_py</depend>
   <depend>python3-numpy</depend>
+  <depend>micro_ros_agent</depend>
 
   <exec_depend>uwaba_prototype_interfaces</exec_depend>
   <exec_depend>uwaba_prototype_description</exec_depend>

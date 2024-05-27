@@ -351,7 +351,6 @@ class ControllerServer(LifecycleNode):
         count_starting = 0
         total_elapsed_time = 0.0
         self.slow_down_inc_ = 1
-        current_pos_x = self.x
         self.changed_velocity_flag_ = False
         self.goal_arrived_ = False
 
@@ -370,29 +369,32 @@ class ControllerServer(LifecycleNode):
 
             with self.timing_lock_:
                 # acquired_cmd = self.cmd_flag_lock_.acquire(timeout=self.timeout_locks)
-                acquired_encoder = self.encoder_flag_lock_.acquire(
-                    timeout=self.timeout_locks
-                )
+                # acquired_encoder = self.encoder_flag_lock_.acquire(
+                #     timeout=self.timeout_locks
+                # )
                 # acquired_imu = self.imu_flag_lock_.acquire(timeout=self.timeout_locks)
                 # acquired_lidar = self.lidar_flag_lock_.acquire(timeout=self.timeout_locks)
                 # acquired_temp = self.temp_flag_lock_.acquire(timeout=self.timeout_locks)
 
                 if (
-                    acquired_encoder
+                    # acquired_encoder
                     # and acquired_cmd
                     # and acquired_imu
                     # and acquired_lidar
                     # and acquired_temp
+                    True
                 ):
                     try:
                         if (
-                            self.got_encoder_package_
+                            # self.got_timing_
+                            # self.got_encoder_package_
                             # and self.got_twist_package_
                             # and self.got_imu_package_
                             # and self.got_lidar_package_
                             # and self.got_temp_package_
+                            True
                         ):
-                            if self.msgs_began_:
+                            if self.msgs_began_ and self.got_timing_:
                                 current_time = self.get_clock().now()
                                 dt = current_time - starting_time
                                 dt = dt.to_msg().sec + dt.to_msg().nanosec / 1e9
@@ -798,16 +800,17 @@ class ControllerServer(LifecycleNode):
                             else:
                                 self.msgs_began_ = True
                                 self.reset_flags()
-
-                    finally:
-                        # self.cmd_flag_lock_.release()
-                        self.encoder_flag_lock_.release()
-                        # self.imu_flag_lock_.release()
-                        # self.lidar_flag_lock_.release()
-                        # self.temp_flag_lock_.release()
-                else:
-                    feedback.process = f"Some flags timed-out. Time out current time (s): {self.timeout_locks}\nFlags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\nLock_Encoder:\t{self.encoder_flag_lock_.locked()}\nLock_Twist:\t{self.cmd_flag_lock_.locked()}\nLock_IMU:\t\t{self.imu_flag_lock_.locked()}\nLock_Lidar:\t{self.lidar_flag_lock_.locked()}\nLock_Temp:\t\t{self.temp_flag_lock_.locked()}\nTiming_Lock:\t{self.timing_lock_.locked()}"
-                    goal_handle.publish_feedback(feedback)
+                        # else: STOP TRYING TO INCLUDE A FUCKING ELSE HERE!!!!! Otherwise it will always be happening and will slow the system
+                        #     self.get_logger().error("Some packages wasn't gotten...")
+                    except Exception as e:
+                        self.get_logger().error(
+                            f"Some error ocurred when trying to process subscribed data. Error code: {e}"
+                        )
+                    # finally:
+                    # self.release_flags()
+                # else:
+                #     feedback.process = f"Some flags timed-out. Time out current time (s): {self.timeout_locks}\nFlags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\nLock_Encoder:\t{self.encoder_flag_lock_.locked()}\nLock_Twist:\t{self.cmd_flag_lock_.locked()}\nLock_IMU:\t\t{self.imu_flag_lock_.locked()}\nLock_Lidar:\t{self.lidar_flag_lock_.locked()}\nLock_Temp:\t\t{self.temp_flag_lock_.locked()}\nTiming_Lock:\t{self.timing_lock_.locked()}"
+                #     goal_handle.publish_feedback(feedback)
 
             if request == "empty" or request is None or request == "":
                 time.sleep(1.0)
@@ -819,7 +822,9 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_header_frame_id_ = twist_msgs.header.frame_id
         self.cmd_vel_linear_ = twist_msgs.twist.linear
         self.cmd_vel_angular_ = twist_msgs.twist.angular
-        if not self.got_twist_package_ or self.got_twist_package_ is None:
+        if (
+            not self.got_twist_package_ or self.got_twist_package_ is None
+        ) and self.msgs_began_:
             with self.cmd_flag_lock_:
                 self.got_twist_package_ = True
 
@@ -828,27 +833,35 @@ class ControllerServer(LifecycleNode):
         self.motor_velocity_header_frame_id_ = motor_vels.header.frame_id
         self.motor_velocity_name_ = motor_vels.name
         self.motor_velocity_encoders_ = motor_vels.velocity
-        if not self.got_encoder_package_ or self.got_encoder_package_ is None:
+        if (
+            not self.got_encoder_package_ or self.got_encoder_package_ is None
+        ) and self.msgs_began_:
             with self.encoder_flag_lock_:
                 self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
-        if not self.got_lidar_package_ or self.got_lidar_package_ is None:
+        if (
+            not self.got_lidar_package_ or self.got_lidar_package_ is None
+        ) and self.msgs_began_:
             with self.lidar_flag_lock_:
                 self.got_lidar_package_ = True
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        if not self.got_imu_package_ or self.got_imu_package_ is None:
+        if (
+            not self.got_imu_package_ or self.got_imu_package_ is None
+        ) and self.msgs_began_:
             with self.imu_flag_lock_:
                 self.got_imu_package_ = True
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
-        if not self.got_temp_package_ or self.got_temp_package_ is None:
+        if (
+            not self.got_temp_package_ or self.got_temp_package_ is None
+        ) and self.msgs_began_:
             with self.temp_flag_lock_:
                 self.got_temp_package_ = True
 
     def timing_function(self):
-        if not self.msgs_began_:
+        if (not self.msgs_began_) and (not self.got_timing_):
             self.orientation = self.orientation_calc(self.orientation, self.th)
             trans = self.set_state_transform(
                 self.get_clock().now(),
@@ -859,17 +872,24 @@ class ControllerServer(LifecycleNode):
                 self.orientation,
             )
             self.send_transforms(odom_trans=trans)
-        if not self.got_timing_ or self.got_timing_ is None:
+        if (not self.got_timing_ or self.got_timing_ is None) and self.msgs_began_:
             with self.timing_lock_:
                 self.got_timing_ = True
 
     def reset_flags(self):
         self.got_timing_ = False
-        self.got_encoder_package_ = False
+        # self.got_encoder_package_ = False
         # self.got_twist_package_ = False
         # self.got_imu_package_ = False
         # self.got_lidar_package_ = False
         # self.got_temp_package_ = False
+
+    def release_flags(self):
+        self.cmd_flag_lock_.release()
+        self.encoder_flag_lock_.release()
+        self.imu_flag_lock_.release()
+        self.lidar_flag_lock_.release()
+        self.temp_flag_lock_.release()
 
     def set_twist_pkg(
         self, current_time, set_twist_msg: TwistStamped, frame_id, vx, vth
