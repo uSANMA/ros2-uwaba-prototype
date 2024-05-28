@@ -91,6 +91,8 @@ class ControllerServer(LifecycleNode):
         self.tune_vel__ = self.get_parameter("tune_velocity").value
         self.declare_parameter("goal_position_x", 0.0)
         self.goal_pos__ = self.get_parameter("goal_position_x").value
+        self.declare_parameter("goal_orientation_z", 0.0)
+        self.goal_ori__ = self.get_parameter("goal_orientation_z").value
         self.declare_parameter("thread_timing", 30.0)
         self.thread_timing__ = self.get_parameter("thread_timing").value
         self.declare_parameter("thread_timeout_tune", 2.0)
@@ -270,7 +272,7 @@ class ControllerServer(LifecycleNode):
 
         if goal_request.request == "set_goal":
             self.get_logger().info(
-                f"Goal {goal_request.request} accepted. Destination was set at x: {goal_request.goal_request}"
+                f"Goal {goal_request.request} accepted. Destination was set at: {goal_request.goal_request}"
             )
             return GoalResponse.ACCEPT
 
@@ -338,8 +340,13 @@ class ControllerServer(LifecycleNode):
             self.goal_handle_ = goal_handle
 
         request = goal_handle.request.request
+        goal_pos__, goal_ori__ = goal_handle.request.goal_request
         if request == "set_goal":
-            self.goal_pos__ = goal_handle.request.goal_request
+            if not self.goal_ori__:
+                self.goal_pos__ = goal_pos__
+            else:
+                self.goal_pos__ = goal_pos__
+                self.goal_ori__ = goal_ori__
 
         self.get_logger().info(f"Request: {request}")
         action_frame_id = goal_handle.request.frame_id
@@ -368,140 +375,299 @@ class ControllerServer(LifecycleNode):
                 starting_time = self.get_clock().now()
 
             with self.timing_lock_:
-                # acquired_cmd = self.cmd_flag_lock_.acquire(timeout=self.timeout_locks)
-                # acquired_encoder = self.encoder_flag_lock_.acquire(
-                #     timeout=self.timeout_locks
-                # )
-                # acquired_imu = self.imu_flag_lock_.acquire(timeout=self.timeout_locks)
-                # acquired_lidar = self.lidar_flag_lock_.acquire(timeout=self.timeout_locks)
-                # acquired_temp = self.temp_flag_lock_.acquire(timeout=self.timeout_locks)
+                try:
+                    if self.msgs_began_ and self.got_timing_:
+                        current_time = self.get_clock().now()
+                        dt = current_time - starting_time
+                        dt = dt.to_msg().sec + dt.to_msg().nanosec / 1e9
 
-                if (
-                    # acquired_encoder
-                    # and acquired_cmd
-                    # and acquired_imu
-                    # and acquired_lidar
-                    # and acquired_temp
-                    True
-                ):
-                    try:
-                        if (
-                            # self.got_timing_
-                            # self.got_encoder_package_
-                            # and self.got_twist_package_
-                            # and self.got_imu_package_
-                            # and self.got_lidar_package_
-                            # and self.got_temp_package_
-                            True
+                        right_motor_vel, left_motor_vel = self.motor_velocity_encoders_
+
+                        if (right_motor_vel != 0.0 or left_motor_vel != 0.0) and (
+                            not self.goal_arrived_ or self.goal_arrived_ is None
                         ):
-                            if self.msgs_began_ and self.got_timing_:
-                                current_time = self.get_clock().now()
-                                dt = current_time - starting_time
-                                dt = dt.to_msg().sec + dt.to_msg().nanosec / 1e9
+                            if self.changed_velocity_flag_:
+                                vx = self.tune_vel__ * (
+                                    (right_motor_vel + left_motor_vel) / 2.0
+                                )
+                                vth = (
+                                    self.tune_vel__
+                                    * (right_motor_vel - left_motor_vel)
+                                    / self.wheels_separation__
+                                )
+                                self.changed_velocity_flag_ = False
 
-                                right_motor_vel, left_motor_vel = (
-                                    self.motor_velocity_encoders_
+                            else:
+                                vx = (right_motor_vel + left_motor_vel) / 2.0
+                                vth = (
+                                    right_motor_vel - left_motor_vel
+                                ) / self.wheels_separation__
+
+                            delta_x, delta_y, delta_th = self.odom_calc(dt, vx, vth)
+
+                            # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
+                            if self.goal_pos__ > 0.0:
+                                if (self.slow_down_inc_ == 1) and self.x >= (
+                                    0.85 * (self.goal_pos__)
+                                ):
+                                    self.tune_vel__ = 0.5
+                                    self.slow_down_inc_ += 1
+                                    self.changed_velocity_flag_ = True
+                            elif self.goal_pos__ < 0.0:
+                                if (self.slow_down_inc_ == 1) and self.x <= (
+                                    0.85 * (self.goal_pos__)
+                                ):
+                                    self.tune_vel__ = 0.5
+                                    self.slow_down_inc_ += 1
+                                    self.changed_velocity_flag_ = True
+                            else:
+                                if self.x > 0.0:
+                                    if (self.slow_down_inc_ == 1) and self.x <= (
+                                        0.85 * 0.2
+                                    ):
+                                        self.tune_vel__ = 0.5
+                                        self.slow_down_inc_ += 1
+                                        self.changed_velocity_flag_ = True
+                                elif self.x < 0.0:
+                                    if (self.slow_down_inc_ == 1) and self.x >= (
+                                        0.85 * -0.2
+                                    ):
+                                        self.tune_vel__ = 0.5
+                                        self.slow_down_inc_ += 1
+                                        self.changed_velocity_flag_ = True
+                            # END
+
+                            self.joint_state = self.set_joint_state_pkg(
+                                current_time, self.joint_state, vx
+                            )
+                            self.odom_msg = self.set_odom_pkg(
+                                current_time,
+                                self.odom_msg,
+                                self.x,
+                                self.y,
+                                vx,
+                                vth,
+                                self.th,
+                                self.orientation,
+                            )
+                            self.odom_trans = self.set_state_transform(
+                                current_time,
+                                self.odom_trans,
+                                self.x,
+                                self.y,
+                                self.th,
+                                self.orientation,
+                            )
+                            self.twist_msg = self.set_twist_pkg(
+                                current_time,
+                                self.twist_msg,
+                                str(self.cmd_vel_header_frame_id_),
+                                vx,
+                                vth,
+                            )
+
+                            self.send_transforms(
+                                self.twist_msg,
+                                self.odom_msg,
+                                self.joint_state,
+                                self.odom_trans,
+                            )
+
+                            total_elapsed_time += dt
+                            starting_time = current_time
+
+                            feedback.process = f"\n -- Slow down inc: {self.slow_down_inc_}\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                            goal_handle.publish_feedback(feedback)
+
+                            if self.goal_pos__ > 0:
+                                if self.x >= self.goal_pos__:
+                                    self.goal_arrived_ = True
+                            elif self.goal_pos__ < 0:
+                                if self.x <= self.goal_pos__:
+                                    self.goal_arrived_ = True
+                            else:
+                                if self.goal_pos__ == 0.0:
+                                    if abs(self.x - self.goal_pos__) <= 0.005:
+                                        self.goal_arrived_ = True
+
+                            self.reset_flags()
+
+                        elif self.goal_arrived_:
+                            self.tune_vel__ *= 0.000001
+                            vx = (
+                                self.tune_vel__
+                                * (right_motor_vel + left_motor_vel)
+                                / 2.0
+                            )
+                            vth = (
+                                self.tune_vel__
+                                * (right_motor_vel - left_motor_vel)
+                                / self.wheels_separation__
+                            )
+
+                            delta_x, delta_y, delta_th = self.odom_calc(dt, vx, vth)
+
+                            self.joint_state = self.set_joint_state_pkg(
+                                current_time, self.joint_state, vx
+                            )
+                            self.odom_msg = self.set_odom_pkg(
+                                current_time,
+                                self.odom_msg,
+                                self.x,
+                                self.y,
+                                vx,
+                                vth,
+                                self.th,
+                                self.orientation,
+                            )
+                            self.odom_trans = self.set_state_transform(
+                                current_time,
+                                self.odom_trans,
+                                self.x,
+                                self.y,
+                                self.th,
+                                self.orientation,
+                            )
+                            self.twist_msg = self.set_twist_pkg(
+                                current_time,
+                                self.twist_msg,
+                                str(self.cmd_vel_header_frame_id_),
+                                vx,
+                                vth,
+                            )
+
+                            self.send_transforms(
+                                self.twist_msg,
+                                self.odom_msg,
+                                self.joint_state,
+                                self.odom_trans,
+                            )
+
+                            if right_motor_vel == 0.0 and left_motor_vel == 0.0:
+                                result.result_msg = f"Arrived at the set destination: x= {self.x}, y= {self.y}, theta= {self.th} in {total_elapsed_time} seconds"
+                                feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{self.twist_msg.twist.linear.x}\n - theta:\t\t\t{self.twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                goal_handle.publish_feedback(feedback)
+                                goal_handle.succeed()
+                                self.goal_arrived_ = False
+                                self.msgs_began_ = False
+
+                                self.reset_flags()
+
+                                return result
+                            else:
+                                total_elapsed_time += dt
+                                starting_time = current_time
+                                feedback.process = f"\n -- Slow down inc: {self.slow_down_inc_}\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
+                                goal_handle.publish_feedback(feedback)
+                                self.reset_flags()
+
+                        elif dt < 0.0:
+                            self.get_logger().error(
+                                f"Somehow dt is negative! dt = {dt}"
+                            )
+                        elif self.goal_pos__ > 0:
+                            if (right_motor_vel == 0.0 and left_motor_vel == 0.0) and (
+                                not self.goal_arrived_
+                            ):
+                                self.joint_state = self.set_joint_state_pkg(
+                                    current_time,
+                                    self.joint_state,
+                                    self.max_linear_velocity__,
+                                )
+                                self.odom_msg = self.set_odom_pkg(
+                                    current_time,
+                                    self.odom_msg,
+                                    self.x,
+                                    self.y,
+                                    self.max_linear_velocity__,
+                                    0.0,
+                                    self.th,
+                                    self.orientation,
+                                )
+                                self.odom_trans = self.set_state_transform(
+                                    current_time,
+                                    self.odom_trans,
+                                    self.x,
+                                    self.y,
+                                    self.th,
+                                    self.orientation,
+                                )
+                                self.twist_msg = self.set_twist_pkg(
+                                    current_time,
+                                    self.twist_msg,
+                                    str(self.cmd_vel_header_frame_id_),
+                                    self.max_linear_velocity__,
+                                    0.0,
                                 )
 
+                                self.send_transforms(
+                                    self.twist_msg,
+                                    self.odom_msg,
+                                    self.joint_state,
+                                    self.odom_trans,
+                                )
+
+                                self.reset_flags()
+                        elif self.goal_pos__ < 0:
+                            if (right_motor_vel == 0.0 and left_motor_vel == 0.0) and (
+                                not self.goal_arrived_
+                            ):
+                                self.joint_state = self.set_joint_state_pkg(
+                                    current_time,
+                                    self.joint_state,
+                                    -self.max_linear_velocity__,
+                                )
+                                self.odom_msg = self.set_odom_pkg(
+                                    current_time,
+                                    self.odom_msg,
+                                    self.x,
+                                    self.y,
+                                    -self.max_linear_velocity__,
+                                    0.0,
+                                    self.th,
+                                    self.orientation,
+                                )
+                                self.odom_trans = self.set_state_transform(
+                                    current_time,
+                                    self.odom_trans,
+                                    self.x,
+                                    self.y,
+                                    self.th,
+                                    self.orientation,
+                                )
+                                self.twist_msg = self.set_twist_pkg(
+                                    current_time,
+                                    self.twist_msg,
+                                    str(self.cmd_vel_header_frame_id_),
+                                    -self.max_linear_velocity__,
+                                    0.0,
+                                )
+
+                                self.send_transforms(
+                                    self.twist_msg,
+                                    self.odom_msg,
+                                    self.joint_state,
+                                    self.odom_trans,
+                                )
+
+                                self.reset_flags()
+                        else:
+                            if self.x > 0:
                                 if (
-                                    right_motor_vel != 0.0 or left_motor_vel != 0.0
-                                ) and (
-                                    not self.goal_arrived_ or self.goal_arrived_ is None
-                                ):
-                                    if self.changed_velocity_flag_:
-                                        vx = self.tune_vel__ * (
-                                            (right_motor_vel + left_motor_vel) / 2.0
-                                        )
-                                        vth = (
-                                            self.tune_vel__
-                                            * (right_motor_vel - left_motor_vel)
-                                            / self.wheels_separation__
-                                        )
-                                        # vth = 0.0
-                                        self.changed_velocity_flag_ = False
-
-                                    else:
-                                        vx = (right_motor_vel + left_motor_vel) / 2.0
-                                        vth = (
-                                            right_motor_vel - left_motor_vel
-                                        ) / self.wheels_separation__
-                                        # vth = 0.0
-
-                                    delta_x, delta_y, delta_th = self.odom_calc(
-                                        dt, vx, vth
-                                    )
-
-                                    # BEGIN: Just a test so that we can go to some length to test the encoder and cmd_vels
-                                    if self.goal_pos__ > 0.0:
-                                        if (self.slow_down_inc_ == 1) and self.x >= (
-                                            0.85 * (self.goal_pos__)
-                                        ):
-                                            self.tune_vel__ = 0.5
-                                            self.slow_down_inc_ += 1
-                                            self.changed_velocity_flag_ = True
-                                        # elif (self.slow_down_inc_ == 2) and self.x >= (
-                                        #     0.95 * (self.goal_pos__)
-                                        # ):
-                                        #     self.tune_vel__ = 0.5
-                                        #     self.slow_down_inc_ += 1
-                                        #     self.changed_velocity_flag_ = True
-                                    elif self.goal_pos__ < 0.0:
-                                        if (self.slow_down_inc_ == 1) and self.x <= (
-                                            0.85 * (self.goal_pos__)
-                                        ):
-                                            self.tune_vel__ = 0.5
-                                            self.slow_down_inc_ += 1
-                                            self.changed_velocity_flag_ = True
-                                        # elif (self.slow_down_inc_ == 2) and self.x <= (
-                                        #     0.95 * (self.goal_pos__)
-                                        # ):
-                                        #     self.tune_vel__ = 0.5
-                                        #     self.slow_down_inc_ += 1
-                                        #     self.changed_velocity_flag_ = True
-                                    else:
-                                        if self.x > 0.0:
-                                            if (
-                                                self.slow_down_inc_ == 1
-                                            ) and self.x <= (0.85 * 0.2):
-                                                self.tune_vel__ = 0.5
-                                                self.slow_down_inc_ += 1
-                                                self.changed_velocity_flag_ = True
-                                            # elif (
-                                            #     self.slow_down_inc_ == 2
-                                            # ) and self.x <= (
-                                            #     0.95 * (self.goal_pos__ + current_pos_x)
-                                            # ):
-                                            #     self.tune_vel__ = 0.5
-                                            #     self.slow_down_inc_ += 1
-                                            #     self.changed_velocity_flag_ = True
-                                        elif self.x < 0.0:
-                                            if (
-                                                self.slow_down_inc_ == 1
-                                            ) and self.x >= (0.85 * -0.2):
-                                                self.tune_vel__ = 0.5
-                                                self.slow_down_inc_ += 1
-                                                self.changed_velocity_flag_ = True
-                                            # elif (
-                                            #     self.slow_down_inc_ == 2
-                                            # ) and self.x >= (
-                                            #     0.95 * (self.goal_pos__ + current_pos_x)
-                                            # ):
-                                            #     self.tune_vel__ = 0.5
-                                            #     self.slow_down_inc_ += 1
-                                            #     self.changed_velocity_flag_ = True
-
-                                    # END
-
+                                    right_motor_vel == 0.0 and left_motor_vel == 0.0
+                                ) and (not self.goal_arrived_):
                                     self.joint_state = self.set_joint_state_pkg(
-                                        current_time, self.joint_state, vx
+                                        current_time,
+                                        self.joint_state,
+                                        -self.max_linear_velocity__,
                                     )
                                     self.odom_msg = self.set_odom_pkg(
                                         current_time,
                                         self.odom_msg,
                                         self.x,
                                         self.y,
-                                        vx,
-                                        vth,
+                                        -self.max_linear_velocity__,
+                                        0.0,
                                         self.th,
                                         self.orientation,
                                     )
@@ -517,8 +683,8 @@ class ControllerServer(LifecycleNode):
                                         current_time,
                                         self.twist_msg,
                                         str(self.cmd_vel_header_frame_id_),
-                                        vx,
-                                        vth,
+                                        -self.max_linear_velocity__,
+                                        0.0,
                                     )
 
                                     self.send_transforms(
@@ -527,53 +693,24 @@ class ControllerServer(LifecycleNode):
                                         self.joint_state,
                                         self.odom_trans,
                                     )
-
-                                    total_elapsed_time += dt
-                                    starting_time = current_time
-
-                                    feedback.process = f"\n -- Slow down inc: {self.slow_down_inc_}\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                                    goal_handle.publish_feedback(feedback)
-
-                                    if self.goal_pos__ > 0:
-                                        if self.x >= self.goal_pos__:
-                                            self.goal_arrived_ = True
-                                    elif self.goal_pos__ < 0:
-                                        if self.x <= self.goal_pos__:
-                                            self.goal_arrived_ = True
-                                    else:
-                                        if self.goal_pos__ == 0.0:
-                                            if abs(self.x - self.goal_pos__) <= 0.005:
-                                                self.goal_arrived_ = True
 
                                     self.reset_flags()
-
-                                elif self.goal_arrived_:
-                                    self.tune_vel__ *= 0.000001
-                                    vx = (
-                                        self.tune_vel__
-                                        * (right_motor_vel + left_motor_vel)
-                                        / 2.0
-                                    )
-                                    vth = (
-                                        self.tune_vel__
-                                        * (right_motor_vel - left_motor_vel)
-                                        / self.wheels_separation__
-                                    )
-
-                                    delta_x, delta_y, delta_th = self.odom_calc(
-                                        dt, vx, vth
-                                    )
-
+                            else:
+                                if (
+                                    right_motor_vel == 0.0 and left_motor_vel == 0.0
+                                ) and (not self.goal_arrived_):
                                     self.joint_state = self.set_joint_state_pkg(
-                                        current_time, self.joint_state, vx
+                                        current_time,
+                                        self.joint_state,
+                                        self.max_linear_velocity__,
                                     )
                                     self.odom_msg = self.set_odom_pkg(
                                         current_time,
                                         self.odom_msg,
                                         self.x,
                                         self.y,
-                                        vx,
-                                        vth,
+                                        self.max_linear_velocity__,
+                                        0.0,
                                         self.th,
                                         self.orientation,
                                     )
@@ -589,8 +726,8 @@ class ControllerServer(LifecycleNode):
                                         current_time,
                                         self.twist_msg,
                                         str(self.cmd_vel_header_frame_id_),
-                                        vx,
-                                        vth,
+                                        self.max_linear_velocity__,
+                                        0.0,
                                     )
 
                                     self.send_transforms(
@@ -600,217 +737,15 @@ class ControllerServer(LifecycleNode):
                                         self.odom_trans,
                                     )
 
-                                    if right_motor_vel == 0.0 and left_motor_vel == 0.0:
-                                        result.result_msg = f"Arrived at the set destination: x= {self.x}, y= {self.y}, theta= {self.th} in {total_elapsed_time} seconds"
-                                        feedback.process = f"\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{self.twist_msg.twist.linear.x}\n - theta:\t\t\t{self.twist_msg.twist.angular.z}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                                        goal_handle.publish_feedback(feedback)
-                                        goal_handle.succeed()
-                                        self.goal_arrived_ = False
-                                        self.msgs_began_ = False
+                                    self.reset_flags()
+                    else:
+                        self.msgs_began_ = True
+                        self.reset_flags()
 
-                                        self.reset_flags()
-
-                                        return result
-                                    else:
-                                        total_elapsed_time += dt
-                                        starting_time = current_time
-                                        feedback.process = f"\n -- Slow down inc: {self.slow_down_inc_}\nGot to goal phase!!!\n - Seconds elapsed:\t{dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - x:\t\t\t{vx}\n - theta:\t\t\t{vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                                        goal_handle.publish_feedback(feedback)
-                                        self.reset_flags()
-
-                                elif dt < 0.0:
-                                    self.get_logger().error(
-                                        f"Somehow dt is negative! dt = {dt}"
-                                    )
-                                elif self.goal_pos__ > 0:
-                                    if (
-                                        right_motor_vel == 0.0 and left_motor_vel == 0.0
-                                    ) and (not self.goal_arrived_):
-                                        self.joint_state = self.set_joint_state_pkg(
-                                            current_time,
-                                            self.joint_state,
-                                            self.max_linear_velocity__,
-                                        )
-                                        self.odom_msg = self.set_odom_pkg(
-                                            current_time,
-                                            self.odom_msg,
-                                            self.x,
-                                            self.y,
-                                            self.max_linear_velocity__,
-                                            0.0,
-                                            self.th,
-                                            self.orientation,
-                                        )
-                                        self.odom_trans = self.set_state_transform(
-                                            current_time,
-                                            self.odom_trans,
-                                            self.x,
-                                            self.y,
-                                            self.th,
-                                            self.orientation,
-                                        )
-                                        self.twist_msg = self.set_twist_pkg(
-                                            current_time,
-                                            self.twist_msg,
-                                            str(self.cmd_vel_header_frame_id_),
-                                            self.max_linear_velocity__,
-                                            0.0,
-                                        )
-
-                                        self.send_transforms(
-                                            self.twist_msg,
-                                            self.odom_msg,
-                                            self.joint_state,
-                                            self.odom_trans,
-                                        )
-
-                                        self.reset_flags()
-                                elif self.goal_pos__ < 0:
-                                    if (
-                                        right_motor_vel == 0.0 and left_motor_vel == 0.0
-                                    ) and (not self.goal_arrived_):
-                                        self.joint_state = self.set_joint_state_pkg(
-                                            current_time,
-                                            self.joint_state,
-                                            -self.max_linear_velocity__,
-                                        )
-                                        self.odom_msg = self.set_odom_pkg(
-                                            current_time,
-                                            self.odom_msg,
-                                            self.x,
-                                            self.y,
-                                            -self.max_linear_velocity__,
-                                            0.0,
-                                            self.th,
-                                            self.orientation,
-                                        )
-                                        self.odom_trans = self.set_state_transform(
-                                            current_time,
-                                            self.odom_trans,
-                                            self.x,
-                                            self.y,
-                                            self.th,
-                                            self.orientation,
-                                        )
-                                        self.twist_msg = self.set_twist_pkg(
-                                            current_time,
-                                            self.twist_msg,
-                                            str(self.cmd_vel_header_frame_id_),
-                                            -self.max_linear_velocity__,
-                                            0.0,
-                                        )
-
-                                        self.send_transforms(
-                                            self.twist_msg,
-                                            self.odom_msg,
-                                            self.joint_state,
-                                            self.odom_trans,
-                                        )
-
-                                        self.reset_flags()
-                                else:
-                                    if self.x > 0:
-                                        if (
-                                            right_motor_vel == 0.0
-                                            and left_motor_vel == 0.0
-                                        ) and (not self.goal_arrived_):
-                                            self.joint_state = self.set_joint_state_pkg(
-                                                current_time,
-                                                self.joint_state,
-                                                -self.max_linear_velocity__,
-                                            )
-                                            self.odom_msg = self.set_odom_pkg(
-                                                current_time,
-                                                self.odom_msg,
-                                                self.x,
-                                                self.y,
-                                                -self.max_linear_velocity__,
-                                                0.0,
-                                                self.th,
-                                                self.orientation,
-                                            )
-                                            self.odom_trans = self.set_state_transform(
-                                                current_time,
-                                                self.odom_trans,
-                                                self.x,
-                                                self.y,
-                                                self.th,
-                                                self.orientation,
-                                            )
-                                            self.twist_msg = self.set_twist_pkg(
-                                                current_time,
-                                                self.twist_msg,
-                                                str(self.cmd_vel_header_frame_id_),
-                                                -self.max_linear_velocity__,
-                                                0.0,
-                                            )
-
-                                            self.send_transforms(
-                                                self.twist_msg,
-                                                self.odom_msg,
-                                                self.joint_state,
-                                                self.odom_trans,
-                                            )
-
-                                            self.reset_flags()
-                                    else:
-                                        if (
-                                            right_motor_vel == 0.0
-                                            and left_motor_vel == 0.0
-                                        ) and (not self.goal_arrived_):
-                                            self.joint_state = self.set_joint_state_pkg(
-                                                current_time,
-                                                self.joint_state,
-                                                self.max_linear_velocity__,
-                                            )
-                                            self.odom_msg = self.set_odom_pkg(
-                                                current_time,
-                                                self.odom_msg,
-                                                self.x,
-                                                self.y,
-                                                self.max_linear_velocity__,
-                                                0.0,
-                                                self.th,
-                                                self.orientation,
-                                            )
-                                            self.odom_trans = self.set_state_transform(
-                                                current_time,
-                                                self.odom_trans,
-                                                self.x,
-                                                self.y,
-                                                self.th,
-                                                self.orientation,
-                                            )
-                                            self.twist_msg = self.set_twist_pkg(
-                                                current_time,
-                                                self.twist_msg,
-                                                str(self.cmd_vel_header_frame_id_),
-                                                self.max_linear_velocity__,
-                                                0.0,
-                                            )
-
-                                            self.send_transforms(
-                                                self.twist_msg,
-                                                self.odom_msg,
-                                                self.joint_state,
-                                                self.odom_trans,
-                                            )
-
-                                            self.reset_flags()
-                            else:
-                                self.msgs_began_ = True
-                                self.reset_flags()
-                        # else: STOP TRYING TO INCLUDE A FUCKING ELSE HERE!!!!! Otherwise it will always be happening and will slow the system
-                        #     self.get_logger().error("Some packages wasn't gotten...")
-                    except Exception as e:
-                        self.get_logger().error(
-                            f"Some error ocurred when trying to process subscribed data. Error code: {e}"
-                        )
-                    # finally:
-                    # self.release_flags()
-                # else:
-                #     feedback.process = f"Some flags timed-out. Time out current time (s): {self.timeout_locks}\nFlags set:\nEncoder:\t{self.got_encoder_package_}\nTwist:\t{self.got_twist_package_}\nIMU:\t{self.got_imu_package_}\nLidar:\t{self.got_lidar_package_}\nTemp:\t{self.got_temp_package_}\nTiming:\t{self.got_timing_}\nLock_Encoder:\t{self.encoder_flag_lock_.locked()}\nLock_Twist:\t{self.cmd_flag_lock_.locked()}\nLock_IMU:\t\t{self.imu_flag_lock_.locked()}\nLock_Lidar:\t{self.lidar_flag_lock_.locked()}\nLock_Temp:\t\t{self.temp_flag_lock_.locked()}\nTiming_Lock:\t{self.timing_lock_.locked()}"
-                #     goal_handle.publish_feedback(feedback)
+                except Exception as e:
+                    self.get_logger().error(
+                        f"Some error ocurred when trying to process subscribed data. Error code: {e}"
+                    )
 
             if request == "empty" or request is None or request == "":
                 time.sleep(1.0)

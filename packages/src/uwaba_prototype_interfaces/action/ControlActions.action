@@ -1,7 +1,7 @@
 # Goal 
 string request
 string frame_id
-float32 goal_request 0.0
+float32[] goal_request [0.0, 0.0]
 ---
 # Result
 string result_msg

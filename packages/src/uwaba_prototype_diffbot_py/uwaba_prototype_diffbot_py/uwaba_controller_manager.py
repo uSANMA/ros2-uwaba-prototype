@@ -53,51 +53,52 @@ class ControllerManager(Node):
 
         self.goal_flag = False
         self.trans_cleaned = False
-        self.action_request_service_ = ""
+        self.action_request_service_ = []
 
     def goal_service_request_handler(
         self, request: ManagerServices.Request, response: ManagerServices.Response
     ):
         # Define the regex pattern
-        goal_pattern = r"(set_goal)_(\w) = (-?\d+\.\d+(\,\d+\.\d+)?)"
+        goal_pattern = r"(set_goal)_(\w) = (-?\d+\.\d+)"
+        goal_match_simple = re.match(goal_pattern, request.goal_request)
+        goal_pattern_mult = r"(set_goal)_(\w)_?(\w)? = (-?\d+\.\d+)\,? ?(-?\d+\.\d+)?"
+        goal_match_mult = re.match(goal_pattern_mult, request.goal_request)
         cancel_pattern = r"(cancel)"
+        goal_match_cancel = re.match(cancel_pattern, request.goal_request)
 
         # Match the pattern with the request string
-        match = re.match(goal_pattern, request.goal_request)
-        if match:
-            action, axis, value = match.groups()
+        if goal_match_simple:
+            action, axis_x, value_x = goal_match_simple.groups()
+            axis_y = ""
             self.get_logger().info(
-                f"Received goal request action {action} to axis {axis} at {float(value)}"
+                f"Received goal request action {action} to axis {axis_x} at {float(value_x)}"
             )
-
-        match = re.match(cancel_pattern, request.goal_request)
-        if match:
-            action = match.group(1)
+        elif goal_match_mult:
+            action, axis_x, axis_y, value_x, value_y = goal_match_mult.groups()
+            self.get_logger().info(
+                f"Received goal request action {action} to axis {axis_x} at {float(value_x)} and to axis {axis_y} at {float(value_y)}"
+            )
+        elif goal_match_cancel:
+            action = goal_match_cancel.group(1)
             self.get_logger().info(f"Received a {action} request.")
 
         try:
             if action == "set_goal":
-                if axis == "x":
-                    self.action_request_service_ = float(value)
-                    response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
+                if axis_x == "x" and axis_y == "":
+                    self.action_request_service_ = [float(value_x), 0.0]
+                    response.request_info = f"Request to new goal at {axis_x}: {self.action_request_service_} was successful. Sending action to the server..."
                     self.send_goal_from_service(action, self.action_request_service_)
                     return response
-                # elif axis == "th":
-                #     self.action_request_service_ = float(value)
-                #     response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
-                #     self.send_goal_from_service(action, self.action_request_service_)
-                #     return response
-                # elif axis == "x_th":
-                #     self.action_request_service_ = float(value)
-                #     response.request_info = f"Request to new goal at {self.action_request_service_} was successful. Sending action to the server..."
-                #     self.send_goal_from_service(action, self.action_request_service_)
-                #     return response
+                elif axis_x == "x" and axis_y == "y":
+                    self.action_request_service_ = [float(value_x), float(value_y)]
+                    response.request_info = f"Request to new goal at {axis_x}: {float(value_x)} and at {axis_y}: {float(value_y)} was successful. Sending action to the server..."
+                    self.send_goal_from_service(action, self.action_request_service_)
+                    return response
                 else:
                     self.get_logger().warn(
                         "The goal to this axis is not yet implemented."
                     )
             elif action == "cancel":
-                self.action_request_service_ = "cancel"
                 response.request_info = (
                     f"Request to {action} successful. Sending action to the server..."
                 )
@@ -150,10 +151,10 @@ class ControllerManager(Node):
         ).add_done_callback(self.goal_response_callback)
         self.goal_flag = True
 
-    def send_goal_from_service(self, request, goal_request):
+    def send_goal_from_service(self, request, goal_requested):
         self.action_client_.wait_for_server()
         goal = ControlActions.Goal()
-        goal.goal_request = goal_request
+        goal.goal_request = goal_requested
         goal.request = request
         goal.frame_id = "new_goal"
         self.action_client_.send_goal_async(
