@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 from launch import LaunchDescription
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
-from launch.actions import RegisterEventHandler, DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (
+    RegisterEventHandler,
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+)
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from os.path import join
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
+    )
+    nav2_launch_bringup = join(
+        get_package_share_directory("uwaba_prototype_diffbot_py"),
+        "launch",
+        "bringup_launch.py",
     )
 
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
@@ -21,13 +32,13 @@ def generate_launch_description():
     )
 
     agent_node = Node(
-        package='micro_ros_agent',
-        executable='micro_ros_agent',
-        name='micro_ros_agent',
+        package="micro_ros_agent",
+        executable="micro_ros_agent",
+        name="micro_ros_agent",
         arguments=["udp4", "-p", "8888", "-v4"],
-        output="screen"
+        output="screen",
     )
-    
+
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
         executable="uwaba_controller_manager",
@@ -75,7 +86,9 @@ def generate_launch_description():
                 default_value=default_rviz_config_path,
                 description="Absolute path to rviz config file",
             ),
-            IncludeLaunchDescription(),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(nav2_launch_bringup)
+            ),
             agent_node,
             server_node,
             client_node,
