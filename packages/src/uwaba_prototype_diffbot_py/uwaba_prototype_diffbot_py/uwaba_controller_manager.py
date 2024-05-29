@@ -13,6 +13,7 @@ from rclpy.action.client import ClientGoalHandle, GoalStatus
 
 from uwaba_prototype_interfaces.action import ControlActions
 from uwaba_prototype_interfaces.srv import ManagerServices
+from uwaba_prototype_interfaces.msg import ServerLog
 
 
 class ControllerManager(Node):
@@ -27,6 +28,10 @@ class ControllerManager(Node):
         self.get_logger().info(f"Server Node: {node_name}")
         service_change_state_name = f"/{node_name}/change_state"
         service_get_state = f"/{node_name}/get_state"
+        self.trans_cleaned = False
+        self.action_request_service_ = []
+        self.logging_msgs_ = ServerLog()
+        self.server_log_publisher_ = self.create_publisher(ServerLog, "server_logs", 10)
 
         self.client_ = self.create_client(
             ChangeState,
@@ -51,9 +56,6 @@ class ControllerManager(Node):
             callback=self.goal_service_request_handler,
         )
 
-        self.goal_flag = False
-        self.trans_cleaned = False
-        self.action_request_service_ = []
 
     def goal_service_request_handler(
         self, request: ManagerServices.Request, response: ManagerServices.Response
@@ -134,7 +136,7 @@ class ControllerManager(Node):
             self.transition_.label = "activate"
             self.change_state(self.transition_)
             self.get_logger().info("Activating OK, now active")
-            # self.send_goal(self.goal_child_frame_id_, self.goal_request_)
+            self.send_goal(self.goal_child_frame_id_, self.goal_request_)
         else:
             self.get_logger().warn(
                 "Server not in a state to be initialized, now trying to deactivate it:"
@@ -149,7 +151,6 @@ class ControllerManager(Node):
         self.action_client_.send_goal_async(
             goal, feedback_callback=self.goal_feedback_callback
         ).add_done_callback(self.goal_response_callback)
-        self.goal_flag = True
 
     def send_goal_from_service(self, request, goal_requested):
         self.action_client_.wait_for_server()
@@ -163,7 +164,8 @@ class ControllerManager(Node):
 
     def goal_feedback_callback(self, feedback_msg):
         process = feedback_msg.feedback.process
-        self.get_logger().info(f"Got feedback: {process}")
+        self.logging_msgs_.logging_msg = process
+        self.server_log_publisher_.publish(self.logging_msgs_)
 
     def goal_response_callback(self, future):
         self.goal_handle_: ClientGoalHandle = future.result()

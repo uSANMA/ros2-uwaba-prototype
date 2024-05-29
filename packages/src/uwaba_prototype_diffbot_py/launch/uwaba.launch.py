@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import launch
+from launch import LaunchDescription
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
-from launch.actions import RegisterEventHandler
+from launch.actions import RegisterEventHandler, DeclareLaunchArgument, IncludeLaunchDescription
 from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -24,7 +24,7 @@ def generate_launch_description():
         package='micro_ros_agent',
         executable='micro_ros_agent',
         name='micro_ros_agent',
-        arguments=["udp4", "-p", "8888", "-v6"],
+        arguments=["udp4", "-p", "8888", "-v4"],
         output="screen"
     )
     
@@ -37,7 +37,7 @@ def generate_launch_description():
 
     server_node = Node(
         package="uwaba_prototype_diffbot_py",
-        executable="uwaba_controller_server",
+        executable="uwaba_controller_server_nav2",
         name="uwaba_controller_server_node",
         parameters=[parameters],
     )
@@ -63,39 +63,24 @@ def generate_launch_description():
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
 
-    # robot_localization_node = Node(
-    #      package='robot_localization',
-    #      executable='ekf_node',
-    #      name='ekf_filter_node',
-    #      output='screen',
-    #      parameters=[os.path.join(pkg_share, 'config/ekf.yaml'), {'use_sim_time': LaunchConfiguration('use_sim_time')}]
-    # )
-
-    # delay_rviz_after_server = RegisterEventHandler(
-    #     event_handler=OnProcessExit(
-    #         target_action=server_node,
-    #         on_exit=[rviz_node],
-    #     )
-    # )
-
-    return launch.LaunchDescription(
+    return LaunchDescription(
         [
-            launch.actions.DeclareLaunchArgument(
+            DeclareLaunchArgument(
                 name="model",
                 default_value=default_model_path,
                 description="Absolute path to robot urdf file",
             ),
-            launch.actions.DeclareLaunchArgument(
+            DeclareLaunchArgument(
                 name="rvizconfig",
                 default_value=default_rviz_config_path,
                 description="Absolute path to rviz config file",
             ),
+            IncludeLaunchDescription(),
             agent_node,
             server_node,
             client_node,
             joint_state_publisher_node,
             robot_state_publisher_node,
-            # robot_localization_node,
-            rviz_node,
+            # rviz_node,
         ]
     )

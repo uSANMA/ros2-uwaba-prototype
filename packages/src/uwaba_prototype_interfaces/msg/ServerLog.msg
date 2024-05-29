@@ -1,0 +1,1 @@
+string logging_msg

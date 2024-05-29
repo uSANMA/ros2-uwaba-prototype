@@ -13,8 +13,23 @@
   <depend>std_msgs</depend>
   <depend>tf2_ros_py</depend>
   <depend>python3-numpy</depend>
+
+  <!-- microROS dependencies -->
   <depend>micro_ros_agent</depend>
 
+  <!-- NAV2 Dependencies -->
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>navigation2</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>turtlebot3_gazebo</exec_depend>
+
+  <!-- uWABA dependecies -->
   <exec_depend>uwaba_prototype_interfaces</exec_depend>
   <exec_depend>uwaba_prototype_description</exec_depend>
 

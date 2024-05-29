@@ -13,6 +13,8 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         (os.path.join("share", package_name + "/params"), glob("params/*")),
         (os.path.join("share", package_name + "/launch"), glob("launch/*")),
+        (os.path.join("share", package_name + "/config"), glob("config/*")),
+        (os.path.join("share", package_name + "/world"), glob("world/*")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -24,7 +26,8 @@ setup(
     entry_points={
         "console_scripts": [
             "uwaba_controller_server = uwaba_prototype_diffbot_py.uwaba_controller_server:main",
-            "uwaba_controller_manager = uwaba_prototype_diffbot_py.uwaba_controller_manager:main"
+            "uwaba_controller_manager = uwaba_prototype_diffbot_py.uwaba_controller_manager:main",
+            "uwaba_controller_server_nav2 = uwaba_prototype_diffbot_py.uwaba_controller_server_nav2:main",
         ],
     },
 )
