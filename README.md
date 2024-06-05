@@ -19,12 +19,13 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
     - [x] Joint State Publisher node
     - [x] RViz2 node
     - [x] Robot Stack node
-    - [ ] Robot Localization node
+    - [ ] Robot Localization node[^3]
     - [ ] [`nav2_bringup`](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/launch/bringup_launch.py)[^2] node
     
 
 [^1]: We did a custom ros2_control in Python for simplicity of code.
 [^2]: The `nav2_params.yaml` file will be launched within `nav2_bringup` tool.
+[^3]: All state estimation nodes track the 15-dimensional state of the vehicle: (X,Y,Z,roll,pitch,yaw,X˙,Y˙,Z˙,roll˙,pitch˙,yaw˙,X¨,Y¨,Z¨)
 
 <!-- Below are some examples on git's README text formatting -->
 <!-- ### ODOMETRY
