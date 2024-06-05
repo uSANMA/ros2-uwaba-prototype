@@ -15,6 +15,7 @@ uwaba_controller_server_node:
     uros_imu_topic: "micro_imu"
     uros_temperature_topic: "micro_temperature"
     uros_lidar_topic: "micro_laserscan"
+    cmd_vel_topic: "cmd_vel"
 
 uwaba_controller_manager_node:
   ros__parameters:

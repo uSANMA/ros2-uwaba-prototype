@@ -18,11 +18,11 @@ def generate_launch_description():
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
     )
-    nav2_launch_bringup = join(
-        get_package_share_directory("uwaba_prototype_diffbot_py"),
-        "launch",
-        "bringup_launch.py",
-    )
+    # nav2_launch_bringup = join(
+    #     get_package_share_directory("uwaba_prototype_diffbot_py"),
+    #     "launch",
+    #     "bringup_launch.py",
+    # )
 
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
     default_rviz_config_path = join(pkg_share, "rviz/urdf_config_wodom.rviz")
@@ -86,14 +86,14 @@ def generate_launch_description():
                 default_value=default_rviz_config_path,
                 description="Absolute path to rviz config file",
             ),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(nav2_launch_bringup)
-            ),
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource(nav2_launch_bringup)
+            # ),
             agent_node,
             server_node,
             client_node,
             joint_state_publisher_node,
             robot_state_publisher_node,
-            # rviz_node,
+            rviz_node,
         ]
     )

@@ -20,7 +20,7 @@ from uwaba_prototype_interfaces.action import ControlActions
 
 # from uwaba_prototype_interfaces.msg import MotorVels
 
-from geometry_msgs.msg import TwistStamped, Quaternion
+from geometry_msgs.msg import TwistStamped, Quaternion, Twist
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from nav_msgs.msg import Odometry
 
@@ -69,13 +69,13 @@ class ControllerServer(LifecycleNode):
             self.covariance_fill_[i] += 0.001
 
         self.cmd_vel_header_stamp_ = None
-        self.cmd_vel_header_frame_id_ = None
-        self.cmd_vel_linear_ = None
-        self.cmd_vel_angular_ = None
+        self.cmd_vel_header_frame_id_ = ""
+        self.cmd_vel_linear_ = 0.0
+        self.cmd_vel_angular_ = 0.0
         self.motor_velocity_header_stamp_ = None
-        self.motor_velocity_header_frame_id_ = None
-        self.motor_velocity_name_ = None
-        self.motor_velocity_encoders_ = None
+        self.motor_velocity_header_frame_id_ = ""
+        self.motor_velocity_name_ = ""
+        self.motor_velocity_encoders_ = [0.0, 0.0]
 
         # ROS 2 parameters
         self.declare_parameter("wheels_separation", 0.0)
@@ -363,7 +363,11 @@ class ControllerServer(LifecycleNode):
 
             with self.timing_lock_:
                 try:
-                    if self.msgs_began_ and self.got_timing_ and self.got_twist_package_:
+                    if (
+                        self.msgs_began_
+                        and self.got_timing_
+                        and self.got_twist_package_
+                    ):
                         current_time = self.get_clock().now()
                         self.dt = current_time - starting_time
                         self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
@@ -404,10 +408,9 @@ class ControllerServer(LifecycleNode):
                             current_time,
                             self.twist_msg,
                             self.cmd_vel_header_frame_id_,
-                            self.vx,
-                            self.vth,
+                            self.cmd_vel_linear_.x,
+                            self.cmd_vel_angular_.z,
                         )
-
                         self.send_transforms(
                             self.twist_msg,
                             self.odom_msg,
@@ -488,7 +491,9 @@ class ControllerServer(LifecycleNode):
                 self.got_temp_package_ = True
 
     def timing_function(self):
-        if ((not self.msgs_began_) and (not self.got_timing_)) or (not self.got_twist_package_):
+        if ((not self.msgs_began_) and (not self.got_timing_)) or (
+            not self.got_twist_package_
+        ):
             self.orientation = self.orientation_calc(self.orientation, self.th)
             trans = self.set_state_transform(
                 self.get_clock().now(),
