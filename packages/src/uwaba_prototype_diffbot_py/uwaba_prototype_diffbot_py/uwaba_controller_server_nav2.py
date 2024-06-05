@@ -20,7 +20,7 @@ from uwaba_prototype_interfaces.action import ControlActions
 
 # from uwaba_prototype_interfaces.msg import MotorVels
 
-from geometry_msgs.msg import TwistStamped, Quaternion, Twist
+from geometry_msgs.msg import TwistStamped, Quaternion, Vector3
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from nav_msgs.msg import Odometry
 
@@ -63,10 +63,15 @@ class ControllerServer(LifecycleNode):
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
 
+        # Imu covariance fill
+        self.imu_covariance_fill_ = np.zeros((9,))
+        for i in range(0, len(self.imu_covariance_fill_)):
+            self.imu_covariance_fill_[i] += 0.001
+
         # Subscription parameters
         self.covariance_fill_ = np.zeros((36,))
-        for i in range(0, len(self.covariance_fill_)):
-            self.covariance_fill_[i] += 0.001
+        for j in range(0, len(self.covariance_fill_)):
+            self.covariance_fill_[j] += 0.001
 
         self.cmd_vel_header_stamp_ = None
         self.cmd_vel_header_frame_id_ = ""
@@ -113,6 +118,8 @@ class ControllerServer(LifecycleNode):
         self.joint_state_topic__ = self.get_parameter("joint_states_topic").value
         self.declare_parameter("cmd_vel_topic", "cmd_vel")
         self.cmd_vel_topic__ = self.get_parameter("cmd_vel_topic").value
+        self.declare_parameter("imu_topic", "cmd_vel")
+        self.imu_topic__ = self.get_parameter("imu_topic").value
 
         self.timeout_locks = self.carlinhos_pro__ * float(1 / self.thread_timing__)
         # Odometry starting point
@@ -144,6 +151,9 @@ class ControllerServer(LifecycleNode):
         self.joint_state_publisher_ = self.create_publisher(
             JointState, f"{self.joint_state_topic__}", self.qos_profile_
         )
+        self.imu_publisher_ = self.create_publisher(
+            Imu, f"{self.imu_topic__}", self.qos_profile_
+        )
         self.get_logger().info("Controller action server has started.")
         self.joint_state = JointState()
         self.joint_state.name = [
@@ -153,6 +163,8 @@ class ControllerServer(LifecycleNode):
         self.joint_state.header.frame_id = "wheels_states"
 
         self.orientation = Quaternion()
+        self.angular_velocity = Vector3()
+        self.linear_acceleration = Vector3()
 
         self.odom_trans = TransformStamped()
         self.odom_trans.header.frame_id = "odom"
@@ -165,6 +177,22 @@ class ControllerServer(LifecycleNode):
         self.odom_msg.child_frame_id = "base_footprint"
         self.odom_msg.pose.covariance = self.covariance_fill_
         self.odom_msg.twist.covariance = self.covariance_fill_
+
+        self.imu_msg = Imu()
+        self.imu_msg.header.frame_id = "imu"
+        (
+            self.imu_msg.linear_acceleration.x,
+            self.imu_msg.linear_acceleration.y,
+            self.imu_msg.linear_acceleration.z,
+        ) = [0.0, 0.0, 0.0]
+        (
+            self.imu_msg.angular_velocity.x,
+            self.imu_msg.angular_velocity.y,
+            self.imu_msg.angular_velocity.z,
+        ) = [0.0, 0.0, 0.0]
+        self.imu_msg.orientation_covariance = self.imu_covariance_fill_
+        self.imu_msg.angular_velocity_covariance = self.imu_covariance_fill_
+        self.imu_msg.linear_acceleration_covariance = self.imu_covariance_fill_
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -327,7 +355,11 @@ class ControllerServer(LifecycleNode):
             0.0,
         )
         self.send_transforms(
-            self.twist_msg, self.odom_msg, self.joint_state, self.odom_trans
+            self.twist_msg,
+            self.odom_msg,
+            self.joint_state,
+            self.odom_trans,
+            self.imu_msg,
         )
         feedback.process = f"--> Goal cancelled successfully.\n--> Robot is currently at:\n---> x:\t{self.x}\n---> y:\t{self.y}\n---> th:\t{self.th}\n"
         goal_handle.publish_feedback(feedback)
@@ -396,6 +428,15 @@ class ControllerServer(LifecycleNode):
                             self.th,
                             self.orientation,
                         )
+                        self.imu_msg = self.set_imu_pkg(
+                            current_time,
+                            self.imu_msg,
+                            self.imu_msg.header.frame_id,
+                            self.th,
+                            self.orientation,
+                            self.imu_msg.angular_velocity,
+                            self.imu_msg.linear_acceleration,
+                        )
                         self.odom_trans = self.set_state_transform(
                             current_time,
                             self.odom_trans,
@@ -416,6 +457,7 @@ class ControllerServer(LifecycleNode):
                             self.odom_msg,
                             self.joint_state,
                             self.odom_trans,
+                            self.imu_msg,
                         )
 
                         total_elapsed_time += self.dt
@@ -477,6 +519,11 @@ class ControllerServer(LifecycleNode):
                 self.got_lidar_package_ = True
 
     def uros_imu_subscription(self, imu_msgs: Imu):
+        self.imu_msg.header.stamp = imu_msgs.header.stamp
+        self.imu_msg.header.frame_id = imu_msgs.header.frame_id
+        self.imu_msg.orientation = imu_msgs.orientation
+        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
         if (
             not self.got_imu_package_ or self.got_imu_package_ is None
         ) and self.msgs_began_:
@@ -532,6 +579,23 @@ class ControllerServer(LifecycleNode):
         self.imu_flag_lock_.release()
         self.lidar_flag_lock_.release()
         self.temp_flag_lock_.release()
+
+    def set_imu_pkg(
+        self,
+        current_time,
+        set_imu_msg: Imu,
+        frame_id,
+        th,
+        set_orientation: Quaternion,
+        set_angular_velocity: Vector3,
+        set_linear_acceleration: Vector3,
+    ) -> Imu:
+        set_imu_msg.header.stamp = current_time.to_msg()
+        set_imu_msg.header.frame_id = frame_id
+        set_imu_msg.orientation = self.orientation_calc(set_orientation, th)
+        set_imu_msg.angular_velocity = set_angular_velocity
+        set_imu_msg.linear_acceleration = set_linear_acceleration
+        return set_imu_msg
 
     def set_twist_pkg(
         self, current_time, set_twist_msg: TwistStamped, frame_id, vx, vth
@@ -616,6 +680,7 @@ class ControllerServer(LifecycleNode):
         odom_msg: Odometry = None,
         joint_state: JointState = None,
         odom_trans: TransformStamped = None,
+        imu_msg: Imu = None,
     ):
         if twist_msg is not None:
             self.send_cmd_vel_back_.publish(twist_msg)
@@ -625,6 +690,8 @@ class ControllerServer(LifecycleNode):
             self.joint_state_publisher_.publish(joint_state)
         if odom_trans is not None:
             self.joint_state_broadcaster_.sendTransform(odom_trans)
+        if imu_msg is not None:
+            self.imu_publisher_.publish(imu_msg)
 
 
 def main(args=None):
