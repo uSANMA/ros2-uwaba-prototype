@@ -9,18 +9,18 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
 
 ## PROJECT NOTES
 ### List of implementations
-- [x] Add [URDF](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/urdf/uwaba_prototype.urdf) file from uwaba's model
-- [x] Add [meshes](https://github.com/uSANMA/ros2-uwaba-prototype/tree/alpha/packages/src/uwaba_prototype_description/meshes/dae) file from uwaba's model
+- [x] Add [URDF](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_description/urdf/uwaba_prototype.urdf.xacro) file from uwaba's model
+- [x] Add [meshes](https://github.com/uSANMA/ros2-uwaba-prototype/tree/beta/packages/src/uwaba_prototype_description/meshes/dae) file from uwaba's model
 - Config directory implementations:
-    - [ ] Implement Extended Kalman Filter file ([ekf.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/ekf.yaml))
-    - [ ] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/alpha/packages/src/uwaba_prototype_description/config/nav2_params.yaml))[^2]
+    - [ ] Implement Extended Kalman Filter file ([ekf.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/config/ekf.yaml))
+    - [ ] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/params/nav2_params.yaml))[^2]
 - Launch file implementations:
     - [x] Robot State Publisher node
     - [x] Joint State Publisher node
     - [x] RViz2 node
     - [x] Robot Stack node
     - [ ] Robot Localization node
-    - [ ] `nav2_bringup`[^2] node
+    - [ ] [`nav2_bringup`](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/launch/bringup_launch.py)[^2] node
     
 
 [^1]: We did a custom ros2_control in Python for simplicity of code.
