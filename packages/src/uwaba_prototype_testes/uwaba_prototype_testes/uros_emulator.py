@@ -138,7 +138,7 @@ class UrosEmulator(Node):
         time.sleep(0.05)  # Simulate processing delay
 
         # Simulate encoder feedback
-        # self.update_from_encoders(self.left_wheel_vel_, self.right_wheel_vel_)
+        self.update_from_encoders(self.left_wheel_vel_, self.right_wheel_vel_)
 
     def update_from_encoders(self, left_wheel_velocity, right_wheel_velocity):
         linear_x = (left_wheel_velocity + right_wheel_velocity) / 2.0

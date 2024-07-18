@@ -7,3 +7,5 @@ packages/log/*
 bags/*
 
 **/.vscode/**
+
+packages/src/rplidar_ros

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+### SIMPLE LINE SIMULATOR ###
 import rclpy
 import re
 from rclpy.node import Node
@@ -24,6 +25,7 @@ class ControllerManager(Node):
         self.declare_parameter("child_frame_id", "empty")
         self.goal_child_frame_id_ = self.get_parameter("child_frame_id").value
         self.declare_parameter("managed_node_name", "uwaba_controller_server_node")
+
         node_name = self.get_parameter("managed_node_name").value
         self.get_logger().info(f"Server Node: {node_name}")
         service_change_state_name = f"/{node_name}/change_state"
@@ -55,7 +57,6 @@ class ControllerManager(Node):
             f"/{node_name}/goal_service",
             callback=self.goal_service_request_handler,
         )
-
 
     def goal_service_request_handler(
         self, request: ManagerServices.Request, response: ManagerServices.Response

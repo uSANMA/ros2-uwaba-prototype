@@ -20,7 +20,7 @@ from uwaba_prototype_interfaces.action import ControlActions
 
 # from uwaba_prototype_interfaces.msg import MotorVels
 
-from geometry_msgs.msg import TwistStamped, Quaternion, Vector3
+from geometry_msgs.msg import TwistStamped, Quaternion, Vector3, Twist
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from nav_msgs.msg import Odometry
 
@@ -46,37 +46,36 @@ class ControllerServer(LifecycleNode):
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
-        self.cmd_flag_lock_ = threading.Lock()
-        self.got_twist_package_ = None
-        self.encoder_flag_lock_ = threading.Lock()
-        self.got_encoder_package_ = None
-        self.imu_flag_lock_ = threading.Lock()
-        self.got_imu_package_ = None
-        self.lidar_flag_lock_ = threading.Lock()
-        self.got_lidar_package_ = None
-        self.temp_flag_lock_ = threading.Lock()
-        self.got_temp_package_ = None
         self.timing_lock_ = threading.Lock()
-        self.got_timing_ = None
+        self.got_timing_ = False
         self.msgs_began_ = False
+        self.got_twist_package_ = False
+        self.got_encoder_package_ = False
+        self.got_imu_package_ = False
+        self.got_lidar_package_ = False
+        self.got_temp_package_ = False
         self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
+        self.starting_time_ = None
 
         # Imu covariance fill
-        self.imu_covariance_fill_ = np.zeros((9,))
-        for i in range(0, len(self.imu_covariance_fill_)):
-            self.imu_covariance_fill_[i] += 0.001
+        # self.imu_covariance_fill_ = np.zeros((9,))
+        # for i in range(0, len(self.imu_covariance_fill_)):
+        #     self.imu_covariance_fill_[i] += 0.001
+        self.imu_covariance_fill_ = np.full((9,), 0.001)
 
         # Subscription parameters
-        self.covariance_fill_ = np.zeros((36,))
-        for j in range(0, len(self.covariance_fill_)):
-            self.covariance_fill_[j] += 0.001
+        # self.covariance_fill_ = np.zeros((36,))
+        # for j in range(0, len(self.covariance_fill_)):
+        #     self.covariance_fill_[j] += 0.001
+        self.covariance_fill_ = np.full((36,), 0.001)
 
-        self.cmd_vel_header_stamp_ = None
-        self.cmd_vel_header_frame_id_ = ""
-        self.cmd_vel_linear_ = 0.0
-        self.cmd_vel_angular_ = 0.0
+        self.cmd_vel_ = TwistStamped()
+        self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
+        self.cmd_vel_.header.frame_id = ""
+        self.cmd_vel_.twist.linear = Twist().linear
+        self.cmd_vel_.twist.angular = Twist().angular
         self.motor_velocity_header_stamp_ = None
         self.motor_velocity_header_frame_id_ = ""
         self.motor_velocity_name_ = ""
@@ -95,10 +94,6 @@ class ControllerServer(LifecycleNode):
         self.goal_pos__ = self.get_parameter("goal_position_x").value
         self.declare_parameter("goal_orientation_z", 0.0)
         self.goal_ori__ = self.get_parameter("goal_orientation_z").value
-        self.declare_parameter("thread_timing", 30.0)
-        self.thread_timing__ = self.get_parameter("thread_timing").value
-        self.declare_parameter("thread_timeout_tune", 2.0)
-        self.carlinhos_pro__ = self.get_parameter("thread_timeout_tune").value
         self.declare_parameter("max_linear_velocity", 1.0)
         self.max_linear_velocity__ = self.get_parameter("max_linear_velocity").value
 
@@ -121,7 +116,6 @@ class ControllerServer(LifecycleNode):
         self.declare_parameter("imu_topic", "cmd_vel")
         self.imu_topic__ = self.get_parameter("imu_topic").value
 
-        self.timeout_locks = self.carlinhos_pro__ * float(1 / self.thread_timing__)
         # Odometry starting point
         self.x = 0.0
         self.y = 0.0
@@ -143,16 +137,28 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
         self.send_cmd_vel_back_ = self.create_publisher(
-            TwistStamped, f"{self.lf_node_name_}/cmd_vel", self.qos_profile_
+            TwistStamped,
+            f"{self.lf_node_name_}/cmd_vel",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.odom_publisher_ = self.create_publisher(
-            Odometry, f"{self.odom_topic__}", self.qos_profile_
+            Odometry,
+            f"{self.odom_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.joint_state_publisher_ = self.create_publisher(
-            JointState, f"{self.joint_state_topic__}", self.qos_profile_
+            JointState,
+            f"{self.joint_state_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.imu_publisher_ = self.create_publisher(
-            Imu, f"{self.imu_topic__}", self.qos_profile_
+            Imu,
+            f"{self.imu_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.get_logger().info("Controller action server has started.")
         self.joint_state = JointState()
@@ -203,33 +209,35 @@ class ControllerServer(LifecycleNode):
             f"{self.cmd_vel_topic__}",
             self.cmd_vel_subscription,
             self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_encoder_state_subscriber = self.create_subscription(
             JointState,
             f"{self.uros_encoder_topic__}",
             self.uros_encoder_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_lidar_subscriber = self.create_subscription(
             LaserScan,
             f"{self.uros_lidar_topic__}",
             self.uros_laser_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_imu_subscriber = self.create_subscription(
             Imu,
             f"{self.uros_imu_topic__}",
             self.uros_imu_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_temp_subscriber = self.create_subscription(
             Temperature,
             f"{self.uros_temperature_topic__}",
             self.uros_temp_subscription,
             self.qos_profile_micro_,
-        )
-        self.time_rate = self.create_timer(
-            (1.0 / self.transform_rate__), self.timing_function
+            callback_group=ReentrantCallbackGroup(),
         )
         self.get_logger().info(
             f"\nActivated successfully with params:\nWheel Separation: {self.wheels_separation__}\nWheel Radius: {self.wheel_radius__}\nTransform Rate: {self.transform_rate__}"
@@ -258,7 +266,6 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.time_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -273,7 +280,6 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.time_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -290,7 +296,6 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.time_rate.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -305,9 +310,9 @@ class ControllerServer(LifecycleNode):
             )
             return GoalResponse.ACCEPT
 
-        elif goal_request.request == "transform":
+        elif goal_request.request == "activate main loop":
             self.get_logger().info(
-                f"Goal {goal_request.request} accepted. Starting loop execution."
+                f"Goal {goal_request.request.upper()} accepted. Starting loop execution."
             )
             return GoalResponse.ACCEPT
 
@@ -315,7 +320,6 @@ class ControllerServer(LifecycleNode):
             # Policy: Goal preemption (must be after some goal are already valid thus preempting)
             if self.goal_handle_ is not None and self.goal_handle_.is_active:
                 self.get_logger().warn("A goal is already active, aborting new goal.")
-                self.msgs_began_ = False
                 self.goal_handle_.abort()
 
     def cancel_callback(self, goal_handle: ServerGoalHandle) -> CancelResponse:
@@ -350,7 +354,7 @@ class ControllerServer(LifecycleNode):
         self.twist_msg = self.set_twist_pkg(
             current_time,
             self.twist_msg,
-            str(self.cmd_vel_header_frame_id_),
+            self.cmd_vel_.header.frame_id,
             0.0,
             0.0,
         )
@@ -363,7 +367,6 @@ class ControllerServer(LifecycleNode):
         )
         feedback.process = f"--> Goal cancelled successfully.\n--> Robot is currently at:\n---> x:\t{self.x}\n---> y:\t{self.y}\n---> th:\t{self.th}\n"
         goal_handle.publish_feedback(feedback)
-        self.msgs_began_ = False
         goal_handle.abort()
         return CancelResponse.ACCEPT
 
@@ -372,213 +375,125 @@ class ControllerServer(LifecycleNode):
         with self.goal_lock_:
             self.goal_handle_ = goal_handle
 
-        request = goal_handle.request.request
-
         result = ControlActions.Result()  # instance the result object
         feedback = ControlActions.Feedback()  # instance the feedback object
 
-        count_starting = 0
         total_elapsed_time = 0.0
+        self.starting_time_ = self.get_clock().now()
 
         while rclpy.ok():
+
             if not goal_handle.is_active:
-                result.result_msg = "Preempted by another goal, or node deactivated."
+                result.result_msg = "Preempted by another goal."
                 return result
 
             if goal_handle.is_cancel_requested:
                 result.result_msg = "Goal was cancel requested"
                 return result
 
-            if self.msgs_began_ and count_starting < 1:
-                count_starting += 1
-                starting_time = self.get_clock().now()
-
             with self.timing_lock_:
-                try:
-                    if (
-                        self.msgs_began_
-                        and self.got_timing_
-                        and self.got_twist_package_
-                    ):
-                        current_time = self.get_clock().now()
-                        self.dt = current_time - starting_time
-                        self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
+                current_time = self.get_clock().now()
+                self.dt = current_time - self.starting_time_
+                self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
 
-                        right_motor_vel, left_motor_vel = self.motor_velocity_encoders_
+                right_motor_vel, left_motor_vel = self.motor_velocity_encoders_
 
-                        self.vx = (right_motor_vel + left_motor_vel) / 2.0
-                        self.vth = (
-                            right_motor_vel - left_motor_vel
-                        ) / self.wheels_separation__
+                self.vx = (right_motor_vel + left_motor_vel) / 2.0
+                self.vth = (
+                    right_motor_vel - left_motor_vel
+                ) / self.wheels_separation__
 
-                        delta_x, delta_y, delta_th = self.odom_calc(
-                            self.dt, self.vx, self.vth
-                        )
+                self.odom_calc(self.dt, self.vx, self.vth)
 
-                        self.joint_state = self.set_joint_state_pkg(
-                            current_time, self.joint_state, self.vx
-                        )
-                        self.odom_msg = self.set_odom_pkg(
-                            current_time,
-                            self.odom_msg,
-                            self.x,
-                            self.y,
-                            self.vx,
-                            self.vth,
-                            self.th,
-                            self.orientation,
-                        )
-                        self.imu_msg = self.set_imu_pkg(
-                            current_time,
-                            self.imu_msg,
-                            self.imu_msg.header.frame_id,
-                            self.th,
-                            self.orientation,
-                            self.imu_msg.angular_velocity,
-                            self.imu_msg.linear_acceleration,
-                        )
-                        self.odom_trans = self.set_state_transform(
-                            current_time,
-                            self.odom_trans,
-                            self.x,
-                            self.y,
-                            self.th,
-                            self.orientation,
-                        )
-                        self.twist_msg = self.set_twist_pkg(
-                            current_time,
-                            self.twist_msg,
-                            self.cmd_vel_header_frame_id_,
-                            self.cmd_vel_linear_.x,
-                            self.cmd_vel_angular_.z,
-                        )
-                        self.send_transforms(
-                            self.twist_msg,
-                            self.odom_msg,
-                            self.joint_state,
-                            self.odom_trans,
-                            self.imu_msg,
-                        )
+                self.joint_state = self.set_joint_state_pkg(
+                    current_time, self.joint_state, self.vx
+                )
+                self.odom_msg = self.set_odom_pkg(
+                    current_time,
+                    self.odom_msg,
+                    self.x,
+                    self.y,
+                    self.vx,
+                    self.vth,
+                    self.th,
+                    self.orientation,
+                )
+                self.imu_msg = self.set_imu_pkg(
+                    current_time,
+                    self.imu_msg,
+                    self.imu_msg.header.frame_id,
+                    self.th,
+                    self.orientation,
+                    self.imu_msg.angular_velocity,
+                    self.imu_msg.linear_acceleration,
+                )
+                self.odom_trans = self.set_state_transform(
+                    current_time,
+                    self.odom_trans,
+                    self.x,
+                    self.y,
+                    self.th,
+                    self.orientation,
+                )
+                self.twist_msg = self.set_twist_pkg(
+                    current_time,
+                    self.twist_msg,
+                    self.cmd_vel_.header.frame_id,
+                    self.cmd_vel_.twist.linear.x,
+                    self.cmd_vel_.twist.angular.z,
+                )
+                self.send_transforms(
+                    self.twist_msg,
+                    self.odom_msg,
+                    self.joint_state,
+                    self.odom_trans,
+                    self.imu_msg,
+                )
 
-                        total_elapsed_time += self.dt
-                        starting_time = current_time
+                total_elapsed_time += self.dt
+                self.starting_time_ = current_time
 
-                        # feedback.process = f"\n- Seconds elapsed:\t{self.dt}\n - Total Elapsed Time:\t{total_elapsed_time}\n - x:\t\t\t{self.x}\n - y:\t\t\t{self.y}\n - th:\t\t\t{self.th}\n - Velocities:\n - vx:\t\t\t{self.vx}\n - vtheta:\t\t\t{self.vth}\n - Variations:\n - delta_x:\t\t{delta_x}\n - delta_y:\t\t{delta_y}\n - delta_theta:\t\t{delta_th}"
-                        feedback.process = f"- Seconds elapsed:{self.dt} - Total Elapsed Time:{total_elapsed_time} - x: {self.x} - y: {self.y} - th: {self.th} - vx:{self.vx} - vtheta: {self.vth} - delta_x:\t\t{delta_x} - delta_y:\t\t{delta_y} - delta_theta: {delta_th}"
-                        goal_handle.publish_feedback(feedback)
+            self.reset_flags()
 
-                        self.reset_flags()
-
-                    elif self.dt < 0.0:
-                        self.get_logger().error(
-                            f"Somehow dt is negative! dt = {self.dt}"
-                        )
-                        return result
-
-                    else:
-                        self.msgs_began_ = True
-                        self.reset_flags()
-
-                except Exception as e:
-                    self.get_logger().error(
-                        f"Some error ocurred when trying to process subscribed data. Error code: {e}"
-                    )
-
-            if request == "empty" or request is None or request == "":
-                time.sleep(1.0)
-                feedback.process = "Goal request variable is empty."
-                goal_handle.publish_feedback(feedback)
+        self.reset_flags()
+        result.result_msg = "Something failed... Aborting"
+        feedback.process = result.result_msg
+        goal_handle.publish_feedback(feedback)
+        goal_handle.abort()
+        return result
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
-        self.cmd_vel_header_stamp_ = twist_msgs.header.stamp
-        self.cmd_vel_header_frame_id_ = twist_msgs.header.frame_id
-        self.cmd_vel_linear_ = twist_msgs.twist.linear
-        self.cmd_vel_angular_ = twist_msgs.twist.angular
-        if (
-            not self.got_twist_package_ or self.got_twist_package_ is None
-        ) and self.msgs_began_:
-            with self.cmd_flag_lock_:
-                self.got_twist_package_ = True
+        with self.timing_lock_:
+            self.cmd_vel_.header.stamp = twist_msgs.header.stamp
+            self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
+            self.cmd_vel_.twist.linear = twist_msgs.twist.linear
+            self.cmd_vel_.twist.angular = twist_msgs.twist.angular
+            self.got_twist_package_ = True
 
     def uros_encoder_subscription(self, motor_vels: JointState):
-        self.motor_velocity_header_stamp_ = motor_vels.header.stamp
-        self.motor_velocity_header_frame_id_ = motor_vels.header.frame_id
-        self.motor_velocity_name_ = motor_vels.name
-        self.motor_velocity_encoders_ = motor_vels.velocity
-        if (
-            not self.got_encoder_package_ or self.got_encoder_package_ is None
-        ) and self.msgs_began_:
-            with self.encoder_flag_lock_:
-                self.got_encoder_package_ = True
+        with self.timing_lock_:
+            self.motor_velocity_header_stamp_ = motor_vels.header.stamp
+            self.motor_velocity_header_frame_id_ = motor_vels.header.frame_id
+            self.motor_velocity_name_ = motor_vels.name
+            self.motor_velocity_encoders_ = motor_vels.velocity
+            self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
-        if (
-            not self.got_lidar_package_ or self.got_lidar_package_ is None
-        ) and self.msgs_began_:
-            with self.lidar_flag_lock_:
-                self.got_lidar_package_ = True
+        with self.timing_lock_:
+            self.got_lidar_package_ = True
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        self.imu_msg.header.stamp = imu_msgs.header.stamp
-        self.imu_msg.header.frame_id = imu_msgs.header.frame_id
-        self.imu_msg.orientation = imu_msgs.orientation
-        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
-        if (
-            not self.got_imu_package_ or self.got_imu_package_ is None
-        ) and self.msgs_began_:
-            with self.imu_flag_lock_:
-                self.got_imu_package_ = True
+        with self.timing_lock_:
+            self.imu_msg.header.stamp = imu_msgs.header.stamp
+            self.imu_msg.header.frame_id = imu_msgs.header.frame_id
+            self.imu_msg.orientation = imu_msgs.orientation
+            self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+            self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
+            self.got_imu_package_ = True
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
-        if (
-            not self.got_temp_package_ or self.got_temp_package_ is None
-        ) and self.msgs_began_:
-            with self.temp_flag_lock_:
-                self.got_temp_package_ = True
-
-    def timing_function(self):
-        if ((not self.msgs_began_) and (not self.got_timing_)) or (
-            not self.got_twist_package_
-        ):
-            self.orientation = self.orientation_calc(self.orientation, self.th)
-            trans = self.set_state_transform(
-                self.get_clock().now(),
-                self.odom_trans,
-                self.x,
-                self.y,
-                self.th,
-                self.orientation,
-            )
-            odom = self.set_odom_pkg(
-                self.get_clock().now(),
-                self.odom_msg,
-                self.x,
-                self.y,
-                self.vx,
-                self.vth,
-                self.th,
-                self.orientation,
-            )
-            self.send_transforms(odom_msg=odom, odom_trans=trans)
-        if (not self.got_timing_ or self.got_timing_ is None) and self.msgs_began_:
-            with self.timing_lock_:
-                self.got_timing_ = True
-
-    def reset_flags(self):
-        self.got_timing_ = False
-        # self.got_encoder_package_ = False
-        # self.got_twist_package_ = False
-        # self.got_imu_package_ = False
-        # self.got_lidar_package_ = False
-        # self.got_temp_package_ = False
-
-    def release_flags(self):
-        self.cmd_flag_lock_.release()
-        self.encoder_flag_lock_.release()
-        self.imu_flag_lock_.release()
-        self.lidar_flag_lock_.release()
-        self.temp_flag_lock_.release()
+        with self.timing_lock_:
+            self.got_temp_package_ = True
 
     def set_imu_pkg(
         self,
@@ -692,6 +607,36 @@ class ControllerServer(LifecycleNode):
             self.joint_state_broadcaster_.sendTransform(odom_trans)
         if imu_msg is not None:
             self.imu_publisher_.publish(imu_msg)
+
+    def idle_state(self):
+        self.orientation = self.orientation_calc(self.orientation, self.th)
+        trans = self.set_state_transform(
+            self.starting_time_,
+            self.odom_trans,
+            self.x,
+            self.y,
+            self.th,
+            self.orientation,
+        )
+        odom = self.set_odom_pkg(
+            self.starting_time_,
+            self.odom_msg,
+            self.x,
+            self.y,
+            self.vx,
+            self.vth,
+            self.th,
+            self.orientation,
+        )
+        self.send_transforms(odom_msg=odom, odom_trans=trans)
+
+    def reset_flags(self):
+        with self.timing_lock_:
+            self.got_encoder_package_ = False
+            self.got_twist_package_ = False
+            self.got_imu_package_ = False
+            self.got_lidar_package_ = False
+            self.got_temp_package_ = False
 
 
 def main(args=None):

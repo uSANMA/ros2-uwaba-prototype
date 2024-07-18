@@ -135,13 +135,22 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
         self.send_cmd_vel_back_ = self.create_publisher(
-            TwistStamped, f"{self.lf_node_name_}/cmd_vel", self.qos_profile_
+            TwistStamped,
+            f"{self.lf_node_name_}/cmd_vel",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.odom_publisher_ = self.create_publisher(
-            Odometry, f"{self.odom_topic__}", self.qos_profile_
+            Odometry,
+            f"{self.odom_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.joint_state_publisher_ = self.create_publisher(
-            JointState, f"{self.joint_state_topic__}", self.qos_profile_
+            JointState,
+            f"{self.joint_state_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.get_logger().info("Controller action server has started.")
         self.joint_state = JointState()
@@ -174,33 +183,40 @@ class ControllerServer(LifecycleNode):
             f"{self.cmd_vel_topic__}",
             self.cmd_vel_subscription,
             self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_encoder_state_subscriber = self.create_subscription(
             JointState,
             f"{self.uros_encoder_topic__}",
             self.uros_encoder_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_lidar_subscriber = self.create_subscription(
             LaserScan,
             f"{self.uros_lidar_topic__}",
             self.uros_laser_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_imu_subscriber = self.create_subscription(
             Imu,
             f"{self.uros_imu_topic__}",
             self.uros_imu_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.uros_temp_subscriber = self.create_subscription(
             Temperature,
             f"{self.uros_temperature_topic__}",
             self.uros_temp_subscription,
             self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.time_rate = self.create_timer(
-            (1.0 / self.transform_rate__), self.timing_function
+            (1.0 / self.transform_rate__),
+            self.timing_function,
+            callback_group=ReentrantCallbackGroup(),
         )
         self.get_logger().info(
             f"\nActivated successfully with params:\nWheel Separation: {self.wheels_separation__}\nWheel Radius: {self.wheel_radius__}\nTransform Rate: {self.transform_rate__}"
