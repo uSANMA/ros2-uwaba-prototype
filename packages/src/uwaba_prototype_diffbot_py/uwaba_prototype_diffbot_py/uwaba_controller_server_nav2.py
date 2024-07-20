@@ -79,7 +79,7 @@ class ControllerServer(LifecycleNode):
         self.motor_velocity_ = JointState()
         self.motor_velocity_.header.stamp = self.get_clock().now().to_msg()
         self.motor_velocity_.header.frame_id = ""
-        self.motor_velocity_.name = ["",""]
+        self.motor_velocity_.name = ["", ""]
         self.motor_velocity_.velocity = []
 
         # ROS 2 parameters
@@ -87,8 +87,25 @@ class ControllerServer(LifecycleNode):
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
         self.declare_parameter("wheel_radius", 0.0)
         self.wheel_radius__ = self.get_parameter("wheel_radius").value
+
         self.declare_parameter("transform_rate", 1.0)
         self.transform_rate__ = self.get_parameter("transform_rate").value
+
+        self.declare_parameter("joint_state_rate", 1.0)
+        self.joint_state_rate__ = self.get_parameter("joint_state_rate").value
+
+        self.declare_parameter("cmd_vel_rate", 1.0)
+        self.cmd_vel_rate__ = self.get_parameter("cmd_vel_rate").value
+
+        self.declare_parameter("odom_rate", 1.0)
+        self.odom_rate__ = self.get_parameter("odom_rate").value
+
+        self.declare_parameter("imu_rate", 1.0)
+        self.imu_rate__ = self.get_parameter("imu_rate").value
+
+        self.declare_parameter("scan_rate", 1.0)
+        self.scan_rate__ = self.get_parameter("scan_rate").value
+
         self.declare_parameter("tune_velocity", 1.0)
         self.tune_vel__ = self.get_parameter("tune_velocity").value
         self.declare_parameter("goal_position_x", 0.0)
@@ -116,6 +133,8 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_topic__ = self.get_parameter("cmd_vel_topic").value
         self.declare_parameter("imu_topic", "cmd_vel")
         self.imu_topic__ = self.get_parameter("imu_topic").value
+        self.declare_parameter("scan_topic", "scan")
+        self.scan_topic__ = self.get_parameter("scan_topic").value
 
         # Odometry starting point
         self.x = 0.0
@@ -161,6 +180,12 @@ class ControllerServer(LifecycleNode):
             self.qos_profile_,
             callback_group=ReentrantCallbackGroup(),
         )
+        self.scan_publisher_ = self.create_publisher(
+            LaserScan,
+            f"{self.scan_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
+        )
         self.get_logger().info("Controller action server has started.")
         self.joint_state = JointState()
         self.joint_state.name = [
@@ -200,6 +225,8 @@ class ControllerServer(LifecycleNode):
         self.imu_msg.orientation_covariance = self.imu_covariance_fill_
         self.imu_msg.angular_velocity_covariance = self.imu_covariance_fill_
         self.imu_msg.linear_acceleration_covariance = self.imu_covariance_fill_
+        
+        self.scan_msg = LaserScan()
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -240,6 +267,43 @@ class ControllerServer(LifecycleNode):
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
         )
+
+        self.transform_publish_rate = self.create_timer(
+            (1.0 / self.transform_rate__),
+            self.transform_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
+        self.joint_state_publish_rate = self.create_timer(
+            (1.0 / self.joint_state_rate__),
+            self.joint_state_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
+        self.cmd_vel_publish_rate = self.create_timer(
+            (1.0 / self.cmd_vel_rate__),
+            self.cmd_vel_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
+        self.odom_publish_rate = self.create_timer(
+            (1.0 / self.odom_rate__),
+            self.odom_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
+        self.imu_publish_rate = self.create_timer(
+            (1.0 / self.imu_rate__),
+            self.imu_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
+        self.scan_publish_rate = self.create_timer(
+            (1.0 / self.scan_rate__),
+            self.scan_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
         self.get_logger().info(
             f"\nActivated successfully with params:\nWheel Separation: {self.wheels_separation__}\nWheel Radius: {self.wheel_radius__}\nTransform Rate: {self.transform_rate__}"
         )
@@ -267,6 +331,12 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
+        self.transform_publish_rate.destroy()
+        self.joint_state_publish_rate.destroy()
+        self.cmd_vel_publish_rate.destroy()
+        self.odom_publish_rate.destroy()
+        self.imu_publish_rate.destroy()
+        self.scan_publish_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -281,6 +351,12 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
+        self.transform_publish_rate.destroy()
+        self.joint_state_publish_rate.destroy()
+        self.cmd_vel_publish_rate.destroy()
+        self.odom_publish_rate.destroy()
+        self.imu_publish_rate.destroy()
+        self.scan_publish_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -297,6 +373,12 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
+        self.transform_publish_rate.destroy()
+        self.joint_state_publish_rate.destroy()
+        self.cmd_vel_publish_rate.destroy()
+        self.odom_publish_rate.destroy()
+        self.imu_publish_rate.destroy()
+        self.scan_publish_rate.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -359,13 +441,6 @@ class ControllerServer(LifecycleNode):
             0.0,
             0.0,
         )
-        self.send_transforms(
-            self.twist_msg,
-            self.odom_msg,
-            self.joint_state,
-            self.odom_trans,
-            self.imu_msg,
-        )
         feedback.process = f"--> Goal cancelled successfully.\n--> Robot is currently at:\n---> x:\t{self.x}\n---> y:\t{self.y}\n---> th:\t{self.th}\n"
         goal_handle.publish_feedback(feedback)
         goal_handle.abort()
@@ -403,9 +478,7 @@ class ControllerServer(LifecycleNode):
                     right_motor_vel, left_motor_vel = [0.0, 0.0]
 
                 self.vx = (right_motor_vel + left_motor_vel) / 2.0
-                self.vth = (
-                    right_motor_vel - left_motor_vel
-                ) / self.wheels_separation__
+                self.vth = (right_motor_vel - left_motor_vel) / self.wheels_separation__
 
                 self.odom_calc(self.dt, self.vx, self.vth)
 
@@ -445,13 +518,6 @@ class ControllerServer(LifecycleNode):
                     self.cmd_vel_.header.frame_id,
                     self.cmd_vel_.twist.linear.x,
                     self.cmd_vel_.twist.angular.z,
-                )
-                self.send_transforms(
-                    self.twist_msg,
-                    self.odom_msg,
-                    self.joint_state,
-                    self.odom_trans,
-                    self.imu_msg,
                 )
 
                 total_elapsed_time += self.dt
@@ -594,46 +660,48 @@ class ControllerServer(LifecycleNode):
         self.th += delta_th
         return delta_x, delta_y, delta_th
 
-    def send_transforms(
-        self,
-        twist_msg: TwistStamped = None,
-        odom_msg: Odometry = None,
-        joint_state: JointState = None,
-        odom_trans: TransformStamped = None,
-        imu_msg: Imu = None,
-    ):
-        if twist_msg is not None:
-            self.send_cmd_vel_back_.publish(twist_msg)
-        if odom_msg is not None:
-            self.odom_publisher_.publish(odom_msg)
-        if joint_state is not None:
-            self.joint_state_publisher_.publish(joint_state)
-        if odom_trans is not None:
-            self.joint_state_broadcaster_.sendTransform(odom_trans)
-        if imu_msg is not None:
-            self.imu_publisher_.publish(imu_msg)
+    def transform_publish(self):
+        with self.timing_lock_:
+            self.joint_state_broadcaster_.sendTransform(self.odom_trans)
 
-    def idle_state(self):
-        self.orientation = self.orientation_calc(self.orientation, self.th)
-        trans = self.set_state_transform(
-            self.starting_time_,
-            self.odom_trans,
-            self.x,
-            self.y,
-            self.th,
-            self.orientation,
-        )
-        odom = self.set_odom_pkg(
-            self.starting_time_,
-            self.odom_msg,
-            self.x,
-            self.y,
-            self.vx,
-            self.vth,
-            self.th,
-            self.orientation,
-        )
-        self.send_transforms(odom_msg=odom, odom_trans=trans)
+    def joint_state_publish(self):
+        with self.timing_lock_:
+            self.joint_state_publisher_.publish(self.joint_state)
+
+    def cmd_vel_publish(self):
+        with self.timing_lock_:
+            self.send_cmd_vel_back_.publish(self.twist_msg)
+
+    def odom_publish(self):
+        with self.timing_lock_:
+            self.odom_publisher_.publish(self.odom_msg)
+
+    def imu_publish(self):
+        with self.timing_lock_:
+            self.imu_publisher_.publish(self.imu_msg)
+
+    def scan_publish(self):
+        with self.timing_lock_:
+            self.scan_publisher_.publish(self.scan_msg)
+
+    # def send_transforms(
+    #     self,
+    #     twist_msg: TwistStamped = None,
+    #     odom_msg: Odometry = None,
+    #     joint_state: JointState = None,
+    #     odom_trans: TransformStamped = None,
+    #     imu_msg: Imu = None,
+    # ):
+    #     if twist_msg is not None:
+    #         self.send_cmd_vel_back_.publish(twist_msg)
+    #     if odom_msg is not None:
+    #         self.odom_publisher_.publish(odom_msg)
+    #     if joint_state is not None:
+    #         self.joint_state_publisher_.publish(joint_state)
+    #     if odom_trans is not None:
+    #         self.joint_state_broadcaster_.sendTransform(odom_trans)
+    #     if imu_msg is not None:
+    #         self.imu_publisher_.publish(imu_msg)
 
     def reset_flags(self):
         with self.timing_lock_:

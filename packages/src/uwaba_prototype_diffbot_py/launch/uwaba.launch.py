@@ -18,11 +18,11 @@ def generate_launch_description():
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
     )
-    # nav2_launch_bringup = join(
-    #     get_package_share_directory("uwaba_prototype_diffbot_py"),
-    #     "launch",
-    #     "bringup_launch.py",
-    # )
+    nav2_launch_bringup = join(
+        get_package_share_directory("uwaba_prototype_diffbot_py"),
+        "launch",
+        "bringup_launch.py",
+    )
 
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
     default_rviz_config_path = join(pkg_share, "rviz/urdf_config_wodom.rviz")
@@ -77,13 +77,13 @@ def generate_launch_description():
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
 
-    robot_localization_node = Node(
-        package="robot_localization",
-        executable="ekf_node",
-        name="ekf_filter_node",
-        output="screen",
-        parameters=[ekf_configs_path],
-    )
+    # robot_localization_node = Node(
+    #     package="robot_localization",
+    #     executable="ekf_node",
+    #     name="ekf_filter_node",
+    #     output="screen",
+    #     parameters=[ekf_configs_path],
+    # )
 
     return LaunchDescription(
         [
@@ -100,10 +100,10 @@ def generate_launch_description():
             # IncludeLaunchDescription(
             #     PythonLaunchDescriptionSource(nav2_launch_bringup)
             # ),
-            # robot_localization_node,
             agent_node,
             server_node,
             client_node,
+            # robot_localization_node,
             joint_state_publisher_node,
             robot_state_publisher_node,
             rviz_node,

@@ -3,6 +3,11 @@ uwaba_controller_server_node:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
     transform_rate: 100.0
+    odom_rate: 50.0
+    joint_state_rate: 50.0
+    imu_rate: 50.0
+    cmd_vel_rate: 50.0
+    scan_rate: 50.0
     goal_position_x: 1.0
     goal_orientation_z: 0.0
     tune_velocity: 1.0
@@ -15,6 +20,7 @@ uwaba_controller_server_node:
     uros_lidar_topic: "micro_laserscan"
     cmd_vel_topic: "cmd_vel"
     imu_topic: "imu"
+    scan_topic: "scan"
 
 uwaba_controller_manager_node:
   ros__parameters:
