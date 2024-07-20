@@ -76,10 +76,11 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.header.frame_id = ""
         self.cmd_vel_.twist.linear = Twist().linear
         self.cmd_vel_.twist.angular = Twist().angular
-        self.motor_velocity_header_stamp_ = None
-        self.motor_velocity_header_frame_id_ = ""
-        self.motor_velocity_name_ = ""
-        self.motor_velocity_encoders_ = [0.0, 0.0]
+        self.motor_velocity_ = JointState()
+        self.motor_velocity_.header.stamp = self.get_clock().now().to_msg()
+        self.motor_velocity_.header.frame_id = ""
+        self.motor_velocity_.name = ["",""]
+        self.motor_velocity_.velocity = []
 
         # ROS 2 parameters
         self.declare_parameter("wheels_separation", 0.0)
@@ -396,7 +397,10 @@ class ControllerServer(LifecycleNode):
                 self.dt = current_time - self.starting_time_
                 self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
 
-                right_motor_vel, left_motor_vel = self.motor_velocity_encoders_
+                if self.motor_velocity_.velocity:
+                    right_motor_vel, left_motor_vel = self.motor_velocity_.velocity
+                else:
+                    right_motor_vel, left_motor_vel = [0.0, 0.0]
 
                 self.vx = (right_motor_vel + left_motor_vel) / 2.0
                 self.vth = (
@@ -472,10 +476,11 @@ class ControllerServer(LifecycleNode):
 
     def uros_encoder_subscription(self, motor_vels: JointState):
         with self.timing_lock_:
-            self.motor_velocity_header_stamp_ = motor_vels.header.stamp
-            self.motor_velocity_header_frame_id_ = motor_vels.header.frame_id
-            self.motor_velocity_name_ = motor_vels.name
-            self.motor_velocity_encoders_ = motor_vels.velocity
+            self.motor_velocity_.header.stamp = motor_vels.header.stamp
+            self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
+            self.motor_velocity_.name = motor_vels.name
+            if motor_vels.velocity:
+                self.motor_velocity_.velocity = motor_vels.velocity
             self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
