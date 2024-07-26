@@ -225,7 +225,7 @@ class ControllerServer(LifecycleNode):
         self.imu_msg.orientation_covariance = self.imu_covariance_fill_
         self.imu_msg.angular_velocity_covariance = self.imu_covariance_fill_
         self.imu_msg.linear_acceleration_covariance = self.imu_covariance_fill_
-        
+
         self.scan_msg = LaserScan()
 
         return TransitionCallbackReturn.SUCCESS
@@ -533,20 +533,20 @@ class ControllerServer(LifecycleNode):
         return result
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
+        self.cmd_vel_.header.stamp = twist_msgs.header.stamp
+        self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
+        self.cmd_vel_.twist.linear = twist_msgs.twist.linear
+        self.cmd_vel_.twist.angular = twist_msgs.twist.angular
         with self.timing_lock_:
-            self.cmd_vel_.header.stamp = twist_msgs.header.stamp
-            self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
-            self.cmd_vel_.twist.linear = twist_msgs.twist.linear
-            self.cmd_vel_.twist.angular = twist_msgs.twist.angular
             self.got_twist_package_ = True
 
     def uros_encoder_subscription(self, motor_vels: JointState):
+        self.motor_velocity_.header.stamp = motor_vels.header.stamp
+        self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
+        self.motor_velocity_.name = motor_vels.name
+        if motor_vels.velocity:
+            self.motor_velocity_.velocity = motor_vels.velocity
         with self.timing_lock_:
-            self.motor_velocity_.header.stamp = motor_vels.header.stamp
-            self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
-            self.motor_velocity_.name = motor_vels.name
-            if motor_vels.velocity:
-                self.motor_velocity_.velocity = motor_vels.velocity
             self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
@@ -554,12 +554,12 @@ class ControllerServer(LifecycleNode):
             self.got_lidar_package_ = True
 
     def uros_imu_subscription(self, imu_msgs: Imu):
+        self.imu_msg.header.stamp = imu_msgs.header.stamp
+        self.imu_msg.header.frame_id = imu_msgs.header.frame_id
+        self.imu_msg.orientation = imu_msgs.orientation
+        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
         with self.timing_lock_:
-            self.imu_msg.header.stamp = imu_msgs.header.stamp
-            self.imu_msg.header.frame_id = imu_msgs.header.frame_id
-            self.imu_msg.orientation = imu_msgs.orientation
-            self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-            self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
             self.got_imu_package_ = True
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
@@ -685,12 +685,11 @@ class ControllerServer(LifecycleNode):
             self.scan_publisher_.publish(self.scan_msg)
 
     def reset_flags(self):
-        with self.timing_lock_:
-            self.got_encoder_package_ = False
-            self.got_twist_package_ = False
-            self.got_imu_package_ = False
-            self.got_lidar_package_ = False
-            self.got_temp_package_ = False
+        self.got_encoder_package_ = False
+        self.got_twist_package_ = False
+        self.got_imu_package_ = False
+        self.got_lidar_package_ = False
+        self.got_temp_package_ = False
 
 
 def main(args=None):
