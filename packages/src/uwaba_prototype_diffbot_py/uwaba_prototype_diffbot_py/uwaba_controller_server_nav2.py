@@ -684,25 +684,6 @@ class ControllerServer(LifecycleNode):
         with self.timing_lock_:
             self.scan_publisher_.publish(self.scan_msg)
 
-    # def send_transforms(
-    #     self,
-    #     twist_msg: TwistStamped = None,
-    #     odom_msg: Odometry = None,
-    #     joint_state: JointState = None,
-    #     odom_trans: TransformStamped = None,
-    #     imu_msg: Imu = None,
-    # ):
-    #     if twist_msg is not None:
-    #         self.send_cmd_vel_back_.publish(twist_msg)
-    #     if odom_msg is not None:
-    #         self.odom_publisher_.publish(odom_msg)
-    #     if joint_state is not None:
-    #         self.joint_state_publisher_.publish(joint_state)
-    #     if odom_trans is not None:
-    #         self.joint_state_broadcaster_.sendTransform(odom_trans)
-    #     if imu_msg is not None:
-    #         self.imu_publisher_.publish(imu_msg)
-
     def reset_flags(self):
         with self.timing_lock_:
             self.got_encoder_package_ = False
