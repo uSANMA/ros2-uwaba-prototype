@@ -18,13 +18,9 @@ from tf2_ros import TransformBroadcaster, TransformStamped
 
 from uwaba_prototype_interfaces.action import ControlActions
 
-# from uwaba_prototype_interfaces.msg import MotorVels
-
 from geometry_msgs.msg import TwistStamped, Quaternion, Vector3, Twist
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from nav_msgs.msg import Odometry
-
-# from uwaba_prototype_diffbot_py.uwaba_controller_manager import ControllerManager
 
 
 ###################################################################################################
@@ -59,17 +55,9 @@ class ControllerServer(LifecycleNode):
         self.joint_state_right_wheel_ = 0.0
         self.starting_time_ = None
 
-        # Imu covariance fill
-        # self.imu_covariance_fill_ = np.zeros((9,))
-        # for i in range(0, len(self.imu_covariance_fill_)):
-        #     self.imu_covariance_fill_[i] += 0.001
-        self.imu_covariance_fill_ = np.full((9,), 0.001)
+        # self.imu_covariance_fill_ = np.full((9,), 0.001)
 
-        # Subscription parameters
-        # self.covariance_fill_ = np.zeros((36,))
-        # for j in range(0, len(self.covariance_fill_)):
-        #     self.covariance_fill_[j] += 0.001
-        self.covariance_fill_ = np.full((36,), 0.001)
+        # self.covariance_fill_ = np.full((36,), 0.001)
 
         self.cmd_vel_ = TwistStamped()
         self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
@@ -87,7 +75,7 @@ class ControllerServer(LifecycleNode):
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
         self.declare_parameter("wheel_radius", 0.0)
         self.wheel_radius__ = self.get_parameter("wheel_radius").value
-
+        
         self.declare_parameter("transform_rate", 1.0)
         self.transform_rate__ = self.get_parameter("transform_rate").value
 
@@ -105,6 +93,9 @@ class ControllerServer(LifecycleNode):
 
         self.declare_parameter("scan_rate", 1.0)
         self.scan_rate__ = self.get_parameter("scan_rate").value
+
+        self.declare_parameter("main_rate", 1.0)
+        self.main_rate__ = self.get_parameter("main_rate").value
 
         self.declare_parameter("tune_velocity", 1.0)
         self.tune_vel__ = self.get_parameter("tune_velocity").value
@@ -135,15 +126,6 @@ class ControllerServer(LifecycleNode):
         self.imu_topic__ = self.get_parameter("imu_topic").value
         self.declare_parameter("scan_topic", "scan")
         self.scan_topic__ = self.get_parameter("scan_topic").value
-
-        # Odometry starting point
-        self.x = 0.0
-        self.y = 0.0
-        self.th = 0.0
-        self.vx = 0.0
-        self.vy = 0.0
-        self.vth = 0.0
-        self.dt = 0.0
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on configure")  ## REMOVE WHEN DONE
@@ -186,6 +168,16 @@ class ControllerServer(LifecycleNode):
             self.qos_profile_,
             callback_group=ReentrantCallbackGroup(),
         )
+
+        # Odometry starting point
+        self.x = 0.0
+        self.y = 0.0
+        self.th = 0.0
+        self.vx = 0.0
+        self.vy = 0.0
+        self.vth = 0.0
+        self.dt = 0.0
+
         self.get_logger().info("Controller action server has started.")
         self.joint_state = JointState()
         self.joint_state.name = [
@@ -207,26 +199,28 @@ class ControllerServer(LifecycleNode):
         self.odom_msg = Odometry()
         self.odom_msg.header.frame_id = "odom"
         self.odom_msg.child_frame_id = "base_footprint"
-        self.odom_msg.pose.covariance = self.covariance_fill_
-        self.odom_msg.twist.covariance = self.covariance_fill_
+        # self.odom_msg.pose.covariance = self.covariance_fill_
+        # self.odom_msg.twist.covariance = self.covariance_fill_
 
         self.imu_msg = Imu()
         self.imu_msg.header.frame_id = "imu"
-        (
-            self.imu_msg.linear_acceleration.x,
-            self.imu_msg.linear_acceleration.y,
-            self.imu_msg.linear_acceleration.z,
-        ) = [0.0, 0.0, 0.0]
-        (
-            self.imu_msg.angular_velocity.x,
-            self.imu_msg.angular_velocity.y,
-            self.imu_msg.angular_velocity.z,
-        ) = [0.0, 0.0, 0.0]
-        self.imu_msg.orientation_covariance = self.imu_covariance_fill_
-        self.imu_msg.angular_velocity_covariance = self.imu_covariance_fill_
-        self.imu_msg.linear_acceleration_covariance = self.imu_covariance_fill_
+        # (
+        #     self.imu_msg.linear_acceleration.x,
+        #     self.imu_msg.linear_acceleration.y,
+        #     self.imu_msg.linear_acceleration.z,
+        # ) = [0.0, 0.0, 0.0]
+        # (
+        #     self.imu_msg.angular_velocity.x,
+        #     self.imu_msg.angular_velocity.y,
+        #     self.imu_msg.angular_velocity.z,
+        # ) = [0.0, 0.0, 0.0]
+        # self.imu_msg.orientation_covariance = self.imu_covariance_fill_
+        # self.imu_msg.angular_velocity_covariance = self.imu_covariance_fill_
+        # self.imu_msg.linear_acceleration_covariance = self.imu_covariance_fill_
 
         self.scan_msg = LaserScan()
+
+        self.total_elapsed_time = 0.0
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -304,10 +298,17 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
 
+        self.main_execution_rate = self.create_timer(
+            (1.0 / self.main_rate__),
+            self.main_execution,
+            callback_group=ReentrantCallbackGroup(),
+        )
+
         self.get_logger().info(
             f"\nActivated successfully with params:\nWheel Separation: {self.wheels_separation__}\nWheel Radius: {self.wheel_radius__}\nTransform Rate: {self.transform_rate__}"
         )
         self.server_activated_ = True
+        self.starting_time_ = self.get_clock().now()
         return super().on_activate(state)
 
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -337,6 +338,7 @@ class ControllerServer(LifecycleNode):
         self.odom_publish_rate.destroy()
         self.imu_publish_rate.destroy()
         self.scan_publish_rate.destroy()
+        self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -357,12 +359,13 @@ class ControllerServer(LifecycleNode):
         self.odom_publish_rate.destroy()
         self.imu_publish_rate.destroy()
         self.scan_publish_rate.destroy()
+        self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().error(
             f"There was an error with state {state}"
-        )  ## REMOVE WHEN DONE
+        ) 
         self.control_server_.destroy()
         self.destroy_publisher(self.cmd_vel_subscriber)
         self.destroy_publisher(self.send_cmd_vel_back_)
@@ -379,6 +382,7 @@ class ControllerServer(LifecycleNode):
         self.odom_publish_rate.destroy()
         self.imu_publish_rate.destroy()
         self.scan_publish_rate.destroy()
+        self.main_execution_rate.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -393,11 +397,11 @@ class ControllerServer(LifecycleNode):
             )
             return GoalResponse.ACCEPT
 
-        elif goal_request.request == "activate main loop":
-            self.get_logger().info(
-                f"Goal {goal_request.request.upper()} accepted. Starting loop execution."
-            )
-            return GoalResponse.ACCEPT
+        # elif goal_request.request == "activate main loop":
+        #     self.get_logger().info(
+        #         f"Goal {goal_request.request.upper()} accepted. Starting loop execution."
+        #     )
+        #     return GoalResponse.ACCEPT
 
         with self.goal_lock_:
             # Policy: Goal preemption (must be after some goal are already valid thus preempting)
@@ -447,6 +451,7 @@ class ControllerServer(LifecycleNode):
         return CancelResponse.ACCEPT
 
     def execute_callback(self, goal_handle: ServerGoalHandle) -> ControlActions:
+        ######### DEPRECATED! #########
         self.get_logger().info("Executing goal")
         with self.goal_lock_:
             self.goal_handle_ = goal_handle
@@ -531,6 +536,63 @@ class ControllerServer(LifecycleNode):
         goal_handle.publish_feedback(feedback)
         goal_handle.abort()
         return result
+
+    def main_execution(self):
+        current_time = self.get_clock().now()
+        self.dt = current_time - self.starting_time_
+        self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
+
+        if self.motor_velocity_.velocity:
+            right_motor_vel, left_motor_vel = self.motor_velocity_.velocity
+        else:
+            right_motor_vel, left_motor_vel = [0.0, 0.0]
+
+        self.vx = (right_motor_vel + left_motor_vel) / 2.0
+        self.vth = (right_motor_vel - left_motor_vel) / self.wheels_separation__
+
+        self.odom_calc(self.dt, self.vx, self.vth)
+
+        self.joint_state = self.set_joint_state_pkg(
+            current_time, self.joint_state, self.vx
+        )
+        self.odom_msg = self.set_odom_pkg(
+            current_time,
+            self.odom_msg,
+            self.x,
+            self.y,
+            self.vx,
+            self.vth,
+            self.th,
+            self.orientation,
+        )
+        self.imu_msg = self.set_imu_pkg(
+            current_time,
+            self.imu_msg,
+            self.imu_msg.header.frame_id,
+            self.th,
+            self.orientation,
+            self.imu_msg.angular_velocity,
+            self.imu_msg.linear_acceleration,
+        )
+        self.odom_trans = self.set_state_transform(
+            current_time,
+            self.odom_trans,
+            self.x,
+            self.y,
+            self.th,
+            self.orientation,
+        )
+        self.twist_msg = self.set_twist_pkg(
+            current_time,
+            self.twist_msg,
+            self.cmd_vel_.header.frame_id,
+            self.cmd_vel_.twist.linear.x,
+            self.cmd_vel_.twist.angular.z,
+        )
+
+        self.total_elapsed_time += self.dt
+        self.starting_time_ = current_time
+        self.reset_flags()
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
@@ -685,11 +747,21 @@ class ControllerServer(LifecycleNode):
             self.scan_publisher_.publish(self.scan_msg)
 
     def reset_flags(self):
-        self.got_encoder_package_ = False
-        self.got_twist_package_ = False
-        self.got_imu_package_ = False
-        self.got_lidar_package_ = False
-        self.got_temp_package_ = False
+        if self.got_encoder_package_:
+            with self.timing_lock_:
+                self.got_encoder_package_ = False
+        if self.got_twist_package_:
+            with self.timing_lock_:
+                self.got_twist_package_ = False
+        if self.got_imu_package_:
+            with self.timing_lock_:
+                self.got_imu_package_ = False
+        if self.got_lidar_package_:
+            with self.timing_lock_:
+                self.got_lidar_package_ = False
+        if self.got_temp_package_:
+            with self.timing_lock_:
+                self.got_temp_package_ = False
 
 
 def main(args=None):

@@ -27,6 +27,7 @@ setup(
         "console_scripts": [
             "uwaba_controller_server = uwaba_prototype_diffbot_py.uwaba_controller_server:main",
             "uwaba_controller_manager = uwaba_prototype_diffbot_py.uwaba_controller_manager:main",
+            "uwaba_controller_manager_nav2 = uwaba_prototype_diffbot_py.uwaba_controller_manager_nav2:main",
             "uwaba_controller_server_nav2 = uwaba_prototype_diffbot_py.uwaba_controller_server_nav2:main",
         ],
     },

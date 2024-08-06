@@ -2,7 +2,8 @@ uwaba_controller_server_node:
   ros__parameters:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
-    transform_rate: 100.0
+    main_rate: 100.0
+    transform_rate: 50.0
     odom_rate: 50.0
     joint_state_rate: 50.0
     imu_rate: 50.0
