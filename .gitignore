@@ -8,4 +8,6 @@ bags/*
 
 **/.vscode/**
 
+**/*.log
+
 packages/src/rplidar_ros
