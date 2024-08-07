@@ -74,14 +74,6 @@ class ControllerServer(LifecycleNode):
         self.scan_rate__ = self.get_parameter("scan_rate").value
         self.declare_parameter("main_rate", 1.0)
         self.main_rate__ = self.get_parameter("main_rate").value
-        self.declare_parameter("tune_velocity", 1.0)
-        self.tune_vel__ = self.get_parameter("tune_velocity").value
-        self.declare_parameter("goal_position_x", 0.0)
-        self.goal_pos__ = self.get_parameter("goal_position_x").value
-        self.declare_parameter("goal_orientation_z", 0.0)
-        self.goal_ori__ = self.get_parameter("goal_orientation_z").value
-        self.declare_parameter("max_linear_velocity", 1.0)
-        self.max_linear_velocity__ = self.get_parameter("max_linear_velocity").value
         self.declare_parameter("uros_encoder_topic", "micro_encoders")
         self.uros_encoder_topic__ = self.get_parameter("uros_encoder_topic").value
         self.declare_parameter("uros_imu_topic", "micro_imu")
@@ -166,11 +158,12 @@ class ControllerServer(LifecycleNode):
         self.motor_velocity_.name = ["", ""]
         self.motor_velocity_.velocity = []
         self.joint_state = JointState()
+        self.joint_state.header.frame_id = "wheels_states"
         self.joint_state.name = [
             "Left_sprocket_base_joint",
             "Right_sprocket_base_joint",
         ]
-        self.joint_state.header.frame_id = "wheels_states"
+        self.joint_state.position = [0.0, 0.0]
         self.orientation = Quaternion()
         self.angular_velocity = Vector3()
         self.linear_acceleration = Vector3()
@@ -395,8 +388,7 @@ class ControllerServer(LifecycleNode):
         feedback = ControlActions.Feedback()
 
         if request == "stop":
-
-            feedback.process = f""
+            feedback.process = f"Server is being 'stop' requested."
             goal_handle.publish_feedback(feedback)
             goal_handle.succeed()
             return result
@@ -466,38 +458,54 @@ class ControllerServer(LifecycleNode):
         self.reset_flags()
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
-        self.cmd_vel_.header.stamp = twist_msgs.header.stamp
-        self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
-        self.cmd_vel_.twist.linear = twist_msgs.twist.linear
-        self.cmd_vel_.twist.angular = twist_msgs.twist.angular
-        with self.timing_lock_:
-            self.got_twist_package_ = True
+        if not self.got_twist_package_:
+            with self.timing_lock_:
+                self.cmd_vel_.header.stamp = twist_msgs.header.stamp
+                self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
+                self.cmd_vel_.twist.linear = twist_msgs.twist.linear
+                self.cmd_vel_.twist.angular = twist_msgs.twist.angular
+                self.got_twist_package_ = True
 
     def uros_encoder_subscription(self, motor_vels: JointState):
-        self.motor_velocity_.header.stamp = motor_vels.header.stamp
-        self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
-        self.motor_velocity_.name = motor_vels.name
-        if motor_vels.velocity:
-            self.motor_velocity_.velocity = motor_vels.velocity
-        with self.timing_lock_:
-            self.got_encoder_package_ = True
+        if not self.got_encoder_package_:
+            with self.timing_lock_:
+                self.motor_velocity_.header.stamp = motor_vels.header.stamp
+                self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
+                self.motor_velocity_.name = motor_vels.name
+                if motor_vels.velocity:
+                    self.motor_velocity_.velocity = motor_vels.velocity
+                self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
-        with self.timing_lock_:
-            self.got_lidar_package_ = True
+        if not self.got_lidar_package_:
+            with self.timing_lock_:
+                self.scan_msg.header.stamp = laser_msgs.header.stamp
+                self.scan_msg.header.frame_id = laser_msgs.header.frame_id
+                self.scan_msg.angle_min = laser_msgs.angle_min
+                self.scan_msg.angle_max = laser_msgs.angle_max
+                self.scan_msg.angle_increment = laser_msgs.angle_increment
+                self.scan_msg.time_increment = laser_msgs.time_increment
+                self.scan_msg.scan_time = laser_msgs.scan_time
+                self.scan_msg.range_min = laser_msgs.range_min
+                self.scan_msg.range_max = laser_msgs.range_max
+                self.scan_msg.ranges = laser_msgs.ranges
+                self.scan_msg.intensities = laser_msgs.intensities
+                self.got_lidar_package_ = True
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        self.imu_msg.header.stamp = imu_msgs.header.stamp
-        self.imu_msg.header.frame_id = imu_msgs.header.frame_id
-        self.imu_msg.orientation = imu_msgs.orientation
-        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
-        with self.timing_lock_:
-            self.got_imu_package_ = True
+        if not self.got_imu_package_:
+            with self.timing_lock_:
+                self.imu_msg.header.stamp = imu_msgs.header.stamp
+                self.imu_msg.header.frame_id = imu_msgs.header.frame_id
+                self.imu_msg.orientation = imu_msgs.orientation
+                self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+                self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
+                self.got_imu_package_ = True
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
-        with self.timing_lock_:
-            self.got_temp_package_ = True
+        if not self.got_temp_package_:
+            with self.timing_lock_:
+                self.got_temp_package_ = True
 
     def set_imu_pkg(
         self,

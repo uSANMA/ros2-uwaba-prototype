@@ -44,7 +44,7 @@ def generate_launch_description():
 
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
-        executable="uwaba_controller_manager",
+        executable="uwaba_controller_manager_nav2",
         name="uwaba_controller_manager_node",
         parameters=[parameters],
     )

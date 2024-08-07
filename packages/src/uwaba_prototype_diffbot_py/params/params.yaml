@@ -3,22 +3,18 @@ uwaba_controller_server_node:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
     main_rate: 100.0
-    transform_rate: 50.0
-    odom_rate: 50.0
-    joint_state_rate: 50.0
-    imu_rate: 50.0
+    transform_rate: 70.0
+    odom_rate: 70.0
+    joint_state_rate: 70.0
+    imu_rate: 35.0
     cmd_vel_rate: 50.0
-    scan_rate: 50.0
-    goal_position_x: 1.0
-    goal_orientation_z: 0.0
-    tune_velocity: 1.0
-    max_linear_velocity: 0.3       # Max velocity in m/s at linear x (so that the robot start moving and jump start its motion towards the goal)
-    odom_topic: "odom"
-    joint_states_topic: "joint_states"
+    scan_rate: 30.0
     uros_encoder_topic: "micro_encoders"
     uros_imu_topic: "micro_imu"
     uros_temperature_topic: "micro_temperature"
     uros_lidar_topic: "micro_laserscan"
+    odom_topic: "odom"
+    joint_states_topic: "joint_states"
     cmd_vel_topic: "cmd_vel"
     imu_topic: "imu"
     scan_topic: "scan"
