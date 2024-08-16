@@ -247,11 +247,11 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
 
-        self.imu_publish_rate = self.create_timer(
-            (1.0 / self.imu_rate__),
-            self.imu_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
+        # self.imu_publish_rate = self.create_timer(
+        #     (1.0 / self.imu_rate__),
+        #     self.imu_publish,
+        #     callback_group=ReentrantCallbackGroup(),
+        # )
 
         # self.scan_publish_rate = self.create_timer(
         #     (1.0 / self.scan_rate__),
@@ -299,7 +299,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_publish_rate.destroy()
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
-        self.imu_publish_rate.destroy()
+        # self.imu_publish_rate.destroy()
         # self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
@@ -320,7 +320,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_publish_rate.destroy()
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
-        self.imu_publish_rate.destroy()
+        # self.imu_publish_rate.destroy()
         # self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
@@ -341,7 +341,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_publish_rate.destroy()
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
-        self.imu_publish_rate.destroy()
+        # self.imu_publish_rate.destroy()
         # self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return super().on_error(state)
@@ -493,14 +493,12 @@ class ControllerServer(LifecycleNode):
         self.scan_publisher_.publish(self.scan_msg)
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        if not self.got_imu_package_:
-            with self.timing_lock_:
-                self.imu_msg.header.stamp = imu_msgs.header.stamp
-                self.imu_msg.header.frame_id = imu_msgs.header.frame_id
-                self.imu_msg.orientation = imu_msgs.orientation
-                self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-                self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
-                self.got_imu_package_ = True
+        self.imu_msg.header.stamp = imu_msgs.header.stamp
+        self.imu_msg.header.frame_id = imu_msgs.header.frame_id
+        self.imu_msg.orientation = imu_msgs.orientation
+        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
+        self.imu_publisher_.publish(self.imu_msg)
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
         if not self.got_temp_package_:
@@ -617,9 +615,9 @@ class ControllerServer(LifecycleNode):
         with self.timing_lock_:
             self.odom_publisher_.publish(self.odom_msg)
 
-    def imu_publish(self):
-        with self.timing_lock_:
-            self.imu_publisher_.publish(self.imu_msg)
+    # def imu_publish(self):
+    #     with self.timing_lock_:
+    #         self.imu_publisher_.publish(self.imu_msg)
 
     # def scan_publish(self):
         # with self.timing_lock_:
@@ -632,15 +630,15 @@ class ControllerServer(LifecycleNode):
         if self.got_twist_package_:
             with self.timing_lock_:
                 self.got_twist_package_ = False
-        if self.got_imu_package_:
-            with self.timing_lock_:
-                self.got_imu_package_ = False
+        # if self.got_imu_package_:
+        #     with self.timing_lock_:
+        #         self.got_imu_package_ = False
         # if self.got_lidar_package_:
         #     with self.timing_lock_:
         #         self.got_lidar_package_ = False
-        if self.got_temp_package_:
-            with self.timing_lock_:
-                self.got_temp_package_ = False
+        # if self.got_temp_package_:
+        #     with self.timing_lock_:
+        #         self.got_temp_package_ = False
 
 
 def main(args=None):
