@@ -25,7 +25,7 @@ def generate_launch_description():
     )
 
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
-    default_rviz_config_path = join(pkg_share, "rviz/urdf_config_wodom.rviz")
+    default_rviz_config_path = join(pkg_share, "rviz/urdf_config_with_laser.rviz")
     ekf_configs_path = PathJoinSubstitution(
         [FindPackageShare("uwaba_prototype_diffbot_py"), "config", "ekf.yaml"]
     )

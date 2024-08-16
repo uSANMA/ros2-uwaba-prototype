@@ -253,11 +253,11 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
 
-        # self.scan_publish_rate = self.create_timer(
-        #     (1.0 / self.scan_rate__),
-        #     self.scan_publish,
-        #     callback_group=ReentrantCallbackGroup(),
-        # )
+        self.scan_publish_rate = self.create_timer(
+            (1.0 / self.scan_rate__),
+            self.scan_publish,
+            callback_group=ReentrantCallbackGroup(),
+        )
 
         self.main_execution_rate = self.create_timer(
             (1.0 / self.main_rate__),
@@ -300,7 +300,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
         self.imu_publish_rate.destroy()
-        # self.scan_publish_rate.destroy()
+        self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
@@ -321,7 +321,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
         self.imu_publish_rate.destroy()
-        # self.scan_publish_rate.destroy()
+        self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
@@ -342,7 +342,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
         self.imu_publish_rate.destroy()
-        # self.scan_publish_rate.destroy()
+        self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return super().on_error(state)
 
@@ -479,18 +479,20 @@ class ControllerServer(LifecycleNode):
                 self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
-        self.scan_msg.header.stamp = laser_msgs.header.stamp
-        self.scan_msg.header.frame_id = laser_msgs.header.frame_id
-        self.scan_msg.angle_min = laser_msgs.angle_min
-        self.scan_msg.angle_max = laser_msgs.angle_max
-        self.scan_msg.angle_increment = laser_msgs.angle_increment
-        self.scan_msg.time_increment = laser_msgs.time_increment
-        self.scan_msg.scan_time = laser_msgs.scan_time
-        self.scan_msg.range_min = laser_msgs.range_min
-        self.scan_msg.range_max = laser_msgs.range_max
-        self.scan_msg.ranges = laser_msgs.ranges
-        self.scan_msg.intensities = laser_msgs.intensities
-        self.scan_publisher_.publish(self.scan_msg)
+        if not self.got_lidar_package_:
+            with self.timing_lock_:
+                self.scan_msg.header.stamp = laser_msgs.header.stamp
+                self.scan_msg.header.frame_id = laser_msgs.header.frame_id
+                self.scan_msg.angle_min = laser_msgs.angle_min
+                self.scan_msg.angle_max = laser_msgs.angle_max
+                self.scan_msg.angle_increment = laser_msgs.angle_increment
+                self.scan_msg.time_increment = laser_msgs.time_increment
+                self.scan_msg.scan_time = laser_msgs.scan_time
+                self.scan_msg.range_min = laser_msgs.range_min
+                self.scan_msg.range_max = laser_msgs.range_max
+                self.scan_msg.ranges = laser_msgs.ranges
+                self.scan_msg.intensities = laser_msgs.intensities
+                self.got_lidar_package_ = True
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         if not self.got_imu_package_:
@@ -621,9 +623,9 @@ class ControllerServer(LifecycleNode):
         with self.timing_lock_:
             self.imu_publisher_.publish(self.imu_msg)
 
-    # def scan_publish(self):
-        # with self.timing_lock_:
-        #     self.scan_publisher_.publish(self.scan_msg)
+    def scan_publish(self):
+        with self.timing_lock_:
+            self.scan_publisher_.publish(self.scan_msg)
 
     def reset_flags(self):
         if self.got_encoder_package_:
@@ -635,9 +637,9 @@ class ControllerServer(LifecycleNode):
         if self.got_imu_package_:
             with self.timing_lock_:
                 self.got_imu_package_ = False
-        # if self.got_lidar_package_:
-        #     with self.timing_lock_:
-        #         self.got_lidar_package_ = False
+        if self.got_lidar_package_:
+            with self.timing_lock_:
+                self.got_lidar_package_ = False
         if self.got_temp_package_:
             with self.timing_lock_:
                 self.got_temp_package_ = False
