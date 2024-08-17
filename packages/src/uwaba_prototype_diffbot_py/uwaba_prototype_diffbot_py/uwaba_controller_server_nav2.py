@@ -469,14 +469,14 @@ class ControllerServer(LifecycleNode):
                 self.got_twist_package_ = True
 
     def uros_encoder_subscription(self, motor_vels: JointState):
-        if not self.got_encoder_package_:
-            with self.timing_lock_:
-                self.motor_velocity_.header.stamp = motor_vels.header.stamp
-                self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
-                self.motor_velocity_.name = motor_vels.name
-                if motor_vels.velocity:
-                    self.motor_velocity_.velocity = motor_vels.velocity
-                self.got_encoder_package_ = True
+        # if not self.got_encoder_package_:
+        #     with self.timing_lock_:
+        self.motor_velocity_.header.stamp = motor_vels.header.stamp
+        self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
+        self.motor_velocity_.name = motor_vels.name
+        if motor_vels.velocity:
+            self.motor_velocity_.velocity = motor_vels.velocity
+        # self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
@@ -624,9 +624,9 @@ class ControllerServer(LifecycleNode):
         #     self.scan_publisher_.publish(self.scan_msg)
 
     def reset_flags(self):
-        if self.got_encoder_package_:
-            with self.timing_lock_:
-                self.got_encoder_package_ = False
+        # if self.got_encoder_package_:
+        #     with self.timing_lock_:
+        #         self.got_encoder_package_ = False
         if self.got_twist_package_:
             with self.timing_lock_:
                 self.got_twist_package_ = False
