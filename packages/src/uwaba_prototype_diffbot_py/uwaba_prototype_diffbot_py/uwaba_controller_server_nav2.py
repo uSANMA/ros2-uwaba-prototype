@@ -188,7 +188,9 @@ class ControllerServer(LifecycleNode):
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
-        self.get_logger().info("Server on activate. Now creating subscribers and publishers' timer callbacks...")  ## REMOVE WHEN DONE
+        self.get_logger().info(
+            "Server on activate. Now creating subscribers and publishers' timer callbacks..."
+        )  ## REMOVE WHEN DONE
         self.cmd_vel_subscriber = self.create_subscription(
             TwistStamped,
             f"{self.cmd_vel_topic__}",
@@ -237,29 +239,11 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
 
-        self.cmd_vel_publish_rate = self.create_timer(
-            (1.0 / self.cmd_vel_rate__),
-            self.cmd_vel_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
-
         self.odom_publish_rate = self.create_timer(
             (1.0 / self.odom_rate__),
             self.odom_publish,
             callback_group=ReentrantCallbackGroup(),
         )
-
-        # self.imu_publish_rate = self.create_timer(
-        #     (1.0 / self.imu_rate__),
-        #     self.imu_publish,
-        #     callback_group=ReentrantCallbackGroup(),
-        # )
-
-        # self.scan_publish_rate = self.create_timer(
-        #     (1.0 / self.scan_rate__),
-        #     self.scan_publish,
-        #     callback_group=ReentrantCallbackGroup(),
-        # )
 
         self.main_execution_rate = self.create_timer(
             (1.0 / self.main_rate__),
@@ -299,10 +283,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_temp_subscriber)
         self.transform_publish_rate.destroy()
         self.joint_state_publish_rate.destroy()
-        self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
-        # self.imu_publish_rate.destroy()
-        # self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
@@ -320,10 +301,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_temp_subscriber)
         self.transform_publish_rate.destroy()
         self.joint_state_publish_rate.destroy()
-        self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
-        # self.imu_publish_rate.destroy()
-        # self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return TransitionCallbackReturn.SUCCESS
 
@@ -343,8 +321,6 @@ class ControllerServer(LifecycleNode):
         self.joint_state_publish_rate.destroy()
         self.cmd_vel_publish_rate.destroy()
         self.odom_publish_rate.destroy()
-        # self.imu_publish_rate.destroy()
-        # self.scan_publish_rate.destroy()
         self.main_execution_rate.destroy()
         return super().on_error(state)
 
@@ -460,26 +436,20 @@ class ControllerServer(LifecycleNode):
 
             self.total_elapsed_time += self.dt
             self.starting_time_ = current_time
-            self.reset_flags()
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
-        # if not self.got_twist_package_:
-        #     with self.timing_lock_:
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
         self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
         self.cmd_vel_.twist.linear = twist_msgs.twist.linear
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
-        # self.got_twist_package_ = True
+        self.send_cmd_vel_back_.publish(self.twist_msg)
 
     def uros_encoder_subscription(self, motor_vels: JointState):
-        # if not self.got_encoder_package_:
-        #     with self.timing_lock_:
         self.motor_velocity_.header.stamp = motor_vels.header.stamp
         self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
         self.motor_velocity_.name = motor_vels.name
         if motor_vels.velocity:
             self.motor_velocity_.velocity = motor_vels.velocity
-        # self.got_encoder_package_ = True
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
@@ -610,38 +580,9 @@ class ControllerServer(LifecycleNode):
         with self.timing_lock_:
             self.joint_state_publisher_.publish(self.joint_state)
 
-    def cmd_vel_publish(self):
-        with self.timing_lock_:
-            self.send_cmd_vel_back_.publish(self.twist_msg)
-
     def odom_publish(self):
         with self.timing_lock_:
             self.odom_publisher_.publish(self.odom_msg)
-
-    # def imu_publish(self):
-    #     with self.timing_lock_:
-    #         self.imu_publisher_.publish(self.imu_msg)
-
-    # def scan_publish(self):
-        # with self.timing_lock_:
-        #     self.scan_publisher_.publish(self.scan_msg)
-
-    def reset_flags(self):
-        # if self.got_encoder_package_:
-        #     with self.timing_lock_:
-        #         self.got_encoder_package_ = False
-        if self.got_twist_package_:
-            with self.timing_lock_:
-                self.got_twist_package_ = False
-        # if self.got_imu_package_:
-        #     with self.timing_lock_:
-        #         self.got_imu_package_ = False
-        # if self.got_lidar_package_:
-        #     with self.timing_lock_:
-        #         self.got_lidar_package_ = False
-        # if self.got_temp_package_:
-        #     with self.timing_lock_:
-        #         self.got_temp_package_ = False
 
 
 def main(args=None):
@@ -649,7 +590,7 @@ def main(args=None):
     node = ControllerServer()
     rclpy.spin(node, MultiThreadedExecutor())
     rclpy.shutdown()
-    
+
 
 if __name__ == "__main__":
     main()
