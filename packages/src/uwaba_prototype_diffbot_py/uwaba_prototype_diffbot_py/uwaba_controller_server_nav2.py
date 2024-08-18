@@ -74,6 +74,8 @@ class ControllerServer(LifecycleNode):
         self.scan_rate__ = self.get_parameter("scan_rate").value
         self.declare_parameter("lidar_frame", "laser_frame")
         self.lidar_frame__ = self.get_parameter("lidar_frame").value
+        self.declare_parameter("imu_frame", "imu_frame")
+        self.imu_frame__ = self.get_parameter("imu_frame").value
         self.declare_parameter("main_rate", 1.0)
         self.main_rate__ = self.get_parameter("main_rate").value
         self.declare_parameter("uros_encoder_topic", "micro_encoders")
@@ -177,7 +179,7 @@ class ControllerServer(LifecycleNode):
         self.odom_msg.header.frame_id = "odom"
         self.odom_msg.child_frame_id = "base_footprint"
         self.imu_msg = Imu()
-        self.imu_msg.header.frame_id = "imu"
+        self.imu_msg.header.frame_id = self.imu_frame__
         self.scan_msg = LaserScan()
         self.scan_msg.header.frame_id = self.lidar_frame__
 
@@ -403,70 +405,71 @@ class ControllerServer(LifecycleNode):
             return result
 
     def main_execution(self):
-        current_time = self.get_clock().now()
-        self.dt = current_time - self.starting_time_
-        self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
+        with self.timing_lock_:
+            current_time = self.get_clock().now()
+            self.dt = current_time - self.starting_time_
+            self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
 
-        if self.motor_velocity_.velocity:
-            right_motor_vel, left_motor_vel = self.motor_velocity_.velocity
-        else:
-            right_motor_vel, left_motor_vel = [0.0, 0.0]
+            if self.motor_velocity_.velocity:
+                right_motor_vel, left_motor_vel = self.motor_velocity_.velocity
+            else:
+                right_motor_vel, left_motor_vel = [0.0, 0.0]
 
-        self.vx = (right_motor_vel + left_motor_vel) / 2.0
-        self.vth = (right_motor_vel - left_motor_vel) / self.wheels_separation__
+            self.vx = (right_motor_vel + left_motor_vel) / 2.0
+            self.vth = (right_motor_vel - left_motor_vel) / self.wheels_separation__
 
-        self.odom_calc(self.dt, self.vx, self.vth)
+            self.odom_calc(self.dt, self.vx, self.vth)
 
-        self.joint_state = self.set_joint_state_pkg(
-            current_time, self.joint_state, self.vx
-        )
-        self.odom_msg = self.set_odom_pkg(
-            current_time,
-            self.odom_msg,
-            self.x,
-            self.y,
-            self.vx,
-            self.vth,
-            self.th,
-            self.orientation,
-        )
-        self.imu_msg = self.set_imu_pkg(
-            current_time,
-            self.imu_msg,
-            self.imu_msg.header.frame_id,
-            self.th,
-            self.orientation,
-            self.imu_msg.angular_velocity,
-            self.imu_msg.linear_acceleration,
-        )
-        self.odom_trans = self.set_state_transform(
-            current_time,
-            self.odom_trans,
-            self.x,
-            self.y,
-            self.th,
-            self.orientation,
-        )
-        self.twist_msg = self.set_twist_pkg(
-            current_time,
-            self.twist_msg,
-            self.cmd_vel_.header.frame_id,
-            self.cmd_vel_.twist.linear.x,
-            self.cmd_vel_.twist.angular.z,
-        )
+            self.joint_state = self.set_joint_state_pkg(
+                current_time, self.joint_state, self.vx
+            )
+            self.odom_msg = self.set_odom_pkg(
+                current_time,
+                self.odom_msg,
+                self.x,
+                self.y,
+                self.vx,
+                self.vth,
+                self.th,
+                self.orientation,
+            )
+            self.imu_msg = self.set_imu_pkg(
+                current_time,
+                self.imu_msg,
+                self.imu_msg.header.frame_id,
+                self.th,
+                self.orientation,
+                self.imu_msg.angular_velocity,
+                self.imu_msg.linear_acceleration,
+            )
+            self.odom_trans = self.set_state_transform(
+                current_time,
+                self.odom_trans,
+                self.x,
+                self.y,
+                self.th,
+                self.orientation,
+            )
+            self.twist_msg = self.set_twist_pkg(
+                current_time,
+                self.twist_msg,
+                self.cmd_vel_.header.frame_id,
+                self.cmd_vel_.twist.linear.x,
+                self.cmd_vel_.twist.angular.z,
+            )
 
-        self.total_elapsed_time += self.dt
-        self.starting_time_ = current_time
-        self.reset_flags()
+            self.total_elapsed_time += self.dt
+            self.starting_time_ = current_time
+            self.reset_flags()
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
-        if not self.got_twist_package_:
-            with self.timing_lock_:
-                self.cmd_vel_.header.stamp = twist_msgs.header.stamp
-                self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
-                self.cmd_vel_.twist.linear = twist_msgs.twist.linear
-                self.cmd_vel_.twist.angular = twist_msgs.twist.angular
-                self.got_twist_package_ = True
+        # if not self.got_twist_package_:
+        #     with self.timing_lock_:
+        self.cmd_vel_.header.stamp = twist_msgs.header.stamp
+        self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
+        self.cmd_vel_.twist.linear = twist_msgs.twist.linear
+        self.cmd_vel_.twist.angular = twist_msgs.twist.angular
+        # self.got_twist_package_ = True
 
     def uros_encoder_subscription(self, motor_vels: JointState):
         # if not self.got_encoder_package_:
@@ -646,7 +649,7 @@ def main(args=None):
     node = ControllerServer()
     rclpy.spin(node, MultiThreadedExecutor())
     rclpy.shutdown()
-
+    
 
 if __name__ == "__main__":
     main()

@@ -3,13 +3,14 @@ uwaba_controller_server_node:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
     main_rate: 100.0
-    transform_rate: 70.0
-    odom_rate: 70.0
-    joint_state_rate: 70.0
-    imu_rate: 35.0
-    cmd_vel_rate: 50.0
+    transform_rate: 30.0
+    odom_rate: 30.0
+    joint_state_rate: 30.0
+    imu_rate: 30.0
+    cmd_vel_rate: 30.0
     scan_rate: 30.0
     lidar_frame: "laser_frame"
+    imu_frame: "imu_frame"
     uros_encoder_topic: "micro_encoders"
     uros_imu_topic: "micro_imu"
     uros_temperature_topic: "micro_temperature"

@@ -77,13 +77,13 @@ def generate_launch_description():
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
 
-    # robot_localization_node = Node(
-    #     package="robot_localization",
-    #     executable="ekf_node",
-    #     name="ekf_filter_node",
-    #     output="screen",
-    #     parameters=[ekf_configs_path],
-    # )
+    robot_localization_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[ekf_configs_path],
+    )
 
     return LaunchDescription(
         [
@@ -103,9 +103,9 @@ def generate_launch_description():
             agent_node,
             server_node,
             client_node,
-            # robot_localization_node,
             joint_state_publisher_node,
             robot_state_publisher_node,
+            robot_localization_node,
             rviz_node,
         ]
     )
