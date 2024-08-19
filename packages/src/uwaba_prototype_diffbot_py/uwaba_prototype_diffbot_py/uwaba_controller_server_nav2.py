@@ -50,7 +50,6 @@ class ControllerServer(LifecycleNode):
         self.got_imu_package_ = False
         self.got_lidar_package_ = False
         self.got_temp_package_ = False
-        self.joint_state_broadcaster_ = TransformBroadcaster(self, self.qos_profile_)
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
         self.starting_time_ = None
@@ -59,6 +58,12 @@ class ControllerServer(LifecycleNode):
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
         self.declare_parameter("wheel_radius", 0.0)
         self.wheel_radius__ = self.get_parameter("wheel_radius").value
+        self.declare_parameter("base_length", 0.0)
+        self.base_length__ = self.get_parameter("base_length").value
+        self.declare_parameter("base_width", 0.0)
+        self.base_width__ = self.get_parameter("base_width").value
+        self.declare_parameter("base_height", 0.0)
+        self.base_height__ = self.get_parameter("base_height").value
         self.declare_parameter("transform_broadcast_rate", 1.0)
         self.transform_broadcast_rate__ = self.get_parameter(
             "transform_broadcast_rate"
@@ -147,6 +152,8 @@ class ControllerServer(LifecycleNode):
         self.vth = 0.0
         self.dt = 0.0
         self.total_elapsed_time = 0.0
+        self.left_wheel_pos_ = 0.0
+        self.right_wheel_pos_ = 0.0
 
         self.orientation = Quaternion()
 
@@ -165,19 +172,23 @@ class ControllerServer(LifecycleNode):
         self.motor_velocity_.header.frame_id = "motor vels"
         self.motor_velocity_.name = ["", ""]
         self.motor_velocity_.velocity = []
+        self.R_encoder_m_s = 0.0
+        self.L_encoder_m_s = 0.0
 
         self.joint_state = JointState()
         self.joint_state.header.frame_id = "wheels_states"
-        # self.joint_state.name = [
-        #     "Left_sprocket_base_joint",
-        #     "Right_sprocket_base_joint",
+        self.joint_state.name = [
+            "Left_sprocket_base_joint",
+            "Right_sprocket_base_joint",
+        ]
+        # self.left_wheel_pos_ = [
+        #     -(self.base_length__ / 2.0),
+        #     (self.wheels_separation__ / 2.0),
         # ]
-        self.joint_state.name = ["", ""]
-        self.joint_state.position = [0.0, 0.0]
-
-        self.odom_trans = TransformStamped()
-        self.odom_trans.header.frame_id = "odom"
-        self.odom_trans.child_frame_id = "base_footprint"
+        # self.right_wheel_pos_ = [
+        #     -(self.base_length__ / 2.0),
+        #     -(self.wheels_separation__ / 2.0),
+        # ]
 
         self.odom_msg = Odometry()
         self.odom_msg.header.frame_id = "odom"
@@ -231,12 +242,6 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
 
-        self.transform_broadcast_rate = self.create_timer(
-            (1.0 / self.transform_broadcast_rate__),
-            self.transform_broadcast_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
-
         self.joint_state_publish_rate = self.create_timer(
             (1.0 / self.joint_state_rate__),
             self.joint_state_publish,
@@ -259,6 +264,9 @@ class ControllerServer(LifecycleNode):
 
         self.get_logger().info(
             f"\n\033[1;32;40mActivated successfully with params:\033[0m\
+                \n-> Base Length: \033[1;34;40m{self.base_length__}\033[0m [m]\
+                    \n-> Base Width: \033[1;34;40m{self.base_width__}\033[0m [m]\
+                        \n-> Base Height: \033[1;34;40m{self.base_height__}\033[0m [m]\
                 \n-> Wheel Separation: \033[1;34;40m{self.wheels_separation__}\033[0m [m]\
                     \n-> Wheel Radius: \033[1;34;40m{self.wheel_radius__}\033[0m [m]\
                         \n-> Main Rate: \033[1;34;40m{self.main_rate__}\033[0m [Hz]\
@@ -291,7 +299,6 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.transform_broadcast_rate.destroy()
         self.joint_state_publish_rate.destroy()
         self.odom_publish_rate.destroy()
         self.main_execution_rate.destroy()
@@ -309,7 +316,6 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.transform_broadcast_rate.destroy()
         self.joint_state_publish_rate.destroy()
         self.odom_publish_rate.destroy()
         self.main_execution_rate.destroy()
@@ -328,7 +334,6 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.transform_broadcast_rate.destroy()
         self.joint_state_publish_rate.destroy()
         self.odom_publish_rate.destroy()
         self.main_execution_rate.destroy()
@@ -401,17 +406,39 @@ class ControllerServer(LifecycleNode):
         with self.timing_lock_:
             self.current_time = self.get_clock().now()
             self.dt = self.current_time - self.starting_time_
-            self.dt = self.dt.to_msg().sec + self.dt.to_msg().nanosec / 1e9
+            self.dt = self.dt.to_msg().sec + (self.dt.to_msg().nanosec / 1e9)
 
             if self.motor_velocity_.velocity:
                 right_motor_vel, left_motor_vel = self.motor_velocity_.velocity
             else:
                 right_motor_vel, left_motor_vel = [0.0, 0.0]
 
-            self.vx = (right_motor_vel + left_motor_vel) / 2.0
-            self.vth = (right_motor_vel - left_motor_vel) / self.wheels_separation__
+            # Calculate the real rad/s value from encoder
+            self.R_encoder_m_s = (
+                (right_motor_vel * (1 / 31.25e-3)) * (self.wheel_radius__ * 2 * pi)
+            )
+            self.L_encoder_m_s = (
+                (left_motor_vel * (1 / 31.25e-3)) * (self.wheel_radius__ * 2 * pi)
+            )
+
+            self.vx = (self.R_encoder_m_s + self.L_encoder_m_s) / 2.0
+            self.vth = (
+                self.R_encoder_m_s - self.L_encoder_m_s
+            ) / self.wheels_separation__
 
             self.pos_calc(self.dt, self.vx, self.vth)
+
+            # self.left_wheel_global_ = [
+            #     (self.x + self.left_wheel_pos_[0]),
+            #     (self.y + self.left_wheel_pos_[1]),
+            # ]
+            # self.right_wheel_global_ = [
+            #     (self.x + self.right_wheel_pos_[0]),
+            #     (self.y + self.right_wheel_pos_[1]),
+            # ]
+
+            self.left_wheel_pos_ = self.L_encoder_tick_rps * self.dt
+            self.right_wheel_pos_ = self.R_encoder_tick_rps * self.dt
 
             self.total_elapsed_time += self.dt
             self.starting_time_ = self.current_time
@@ -515,11 +542,16 @@ class ControllerServer(LifecycleNode):
         return set_odom_msg
 
     def set_joint_state_pkg(
-        self, current_time, set_joint_state: JointState, vx
+        self,
+        current_time,
+        set_joint_state: JointState,
+        left_pos: float,
+        right_pos: float,
+        vx: list,
     ) -> JointState:
         set_joint_state.header.stamp = current_time.to_msg()
-        set_joint_state.position = [(self.x), (self.x)]
-        set_joint_state.velocity = [vx, vx]
+        set_joint_state.position = [(left_pos), (right_pos)]
+        set_joint_state.velocity = vx
         return set_joint_state
 
     def set_state_transform(
@@ -556,25 +588,16 @@ class ControllerServer(LifecycleNode):
         self.th += delta_th
         return delta_x, delta_y, delta_th
 
-    def transform_broadcast_publish(self):
-        with self.timing_lock_:
-            self.odom_trans = self.set_state_transform(
-                self.current_time,
-                self.odom_trans,
-                self.x,
-                self.y,
-                self.th,
-                self.orientation,
-            )
-            self.joint_state_broadcaster_.sendTransform(self.odom_trans)
-
     def joint_state_publish(self):
         with self.timing_lock_:
             self.joint_state = self.set_joint_state_pkg(
-                self.current_time, self.joint_state, self.vx
+                self.current_time,
+                self.joint_state,
+                self.left_wheel_pos_,
+                self.right_wheel_pos_,
+                self.motor_velocity_.velocity,
             )
             self.joint_state_publisher_.publish(self.joint_state)
-        pass
 
     def odom_publish(self):
         with self.timing_lock_:

@@ -2,10 +2,12 @@ uwaba_controller_server_node:
   ros__parameters:
     wheels_separation: 0.13607
     wheel_radius: 0.0161000025
+    base_length: 0.2480000407
+    base_width: 0.1058000177
+    base_height: 0.0387500003
     main_rate: 100.0
-    transform_broadcast_rate: 30.0
-    odom_rate: 30.0
-    joint_state_rate: 30.0
+    odom_rate: 35.0
+    joint_state_rate: 40.0
     lidar_frame: "laser_frame"
     imu_frame: "imu_frame"
     uros_encoder_topic: "micro_encoders"
@@ -13,7 +15,7 @@ uwaba_controller_server_node:
     uros_temperature_topic: "micro_temperature"
     uros_lidar_topic: "micro_laserscan"
     odom_topic: "odom"
-    joint_states_topic: "joint_states"
+    joint_states_topic: "new_joint_states"
     cmd_vel_topic: "cmd_vel"
     imu_topic: "imu"
     scan_topic: "scan"

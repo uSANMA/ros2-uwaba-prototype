@@ -60,7 +60,8 @@ def generate_launch_description():
         package="robot_state_publisher",
         executable="robot_state_publisher",
         parameters=[
-            {"robot_description": Command(["xacro ", LaunchConfiguration("model")])}
+            {"robot_description": Command(["xacro ", LaunchConfiguration("model")])},
+            {"publish_frequency": 30.0},
         ],
     )
 
@@ -68,6 +69,7 @@ def generate_launch_description():
         package="joint_state_publisher",
         executable="joint_state_publisher",
         name="joint_state_publisher",
+        parameters=[{"rate": 30}, {"source_list": ["new_joint_states"]}],
     )
     rviz_node = Node(
         package="rviz2",
@@ -100,7 +102,7 @@ def generate_launch_description():
             # IncludeLaunchDescription(
             #     PythonLaunchDescriptionSource(nav2_launch_bringup)
             # ),
-            agent_node,
+            # agent_node,
             server_node,
             client_node,
             joint_state_publisher_node,
