@@ -63,21 +63,21 @@ class UrosEmulator(Node):
             self.encoder_publish,
             callback_group=ReentrantCallbackGroup(),
         )
-        self.lidar_publish_rate_ = self.create_timer(
-            1.0 / self.lidar_publish_freq_,
-            self.lidar_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
-        self.temperature_publish_rate_ = self.create_timer(
-            1.0 / self.temperature_publish_freq_,
-            self.temperature_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
-        self.imu_publish_rate_ = self.create_timer(
-            1.0 / self.imu_publish_freq_,
-            self.imu_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
+        # self.lidar_publish_rate_ = self.create_timer(
+        #     1.0 / self.lidar_publish_freq_,
+        #     self.lidar_publish,
+        #     callback_group=ReentrantCallbackGroup(),
+        # )
+        # self.temperature_publish_rate_ = self.create_timer(
+        #     1.0 / self.temperature_publish_freq_,
+        #     self.temperature_publish,
+        #     callback_group=ReentrantCallbackGroup(),
+        # )
+        # self.imu_publish_rate_ = self.create_timer(
+        #     1.0 / self.imu_publish_freq_,
+        #     self.imu_publish,
+        #     callback_group=ReentrantCallbackGroup(),
+        # )
 
     def encoder_publish(self):
         if self.linear_x_ is not None and self.angular_z_ is not None:
@@ -101,14 +101,14 @@ class UrosEmulator(Node):
         else:
             self.get_logger().warn("Linear and angular velocities not yet ready.")
 
-    def lidar_publish(self):
-        self.lidar_publisher_.publish(self.lidar_msgs_)
+    # def lidar_publish(self):
+    #     self.lidar_publisher_.publish(self.lidar_msgs_)
 
-    def temperature_publish(self):
-        self.temperature_publisher_.publish(self.temperature_msgs_)
+    # def temperature_publish(self):
+    #     self.temperature_publisher_.publish(self.temperature_msgs_)
 
-    def imu_publish(self):
-        self.imu_publisher_.publish(self.imu_msgs_)
+    # def imu_publish(self):
+    #     self.imu_publisher_.publish(self.imu_msgs_)
 
     def cmd_vel_subscription(self, cmd_vel: TwistStamped):
         self.linear_x_ = cmd_vel.twist.linear.x
