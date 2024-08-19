@@ -414,11 +414,12 @@ class ControllerServer(LifecycleNode):
                 right_motor_vel, left_motor_vel = [0.0, 0.0]
 
             # Calculate the real rad/s value from encoder
+            # 31.25e-3 is related to the amount of times that each pulse is given towards a revolution
             self.R_encoder_m_s = (
-                (right_motor_vel * (1 / 31.25e-3)) * (self.wheel_radius__ * 2 * pi)
+                (right_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
             )
             self.L_encoder_m_s = (
-                (left_motor_vel * (1 / 31.25e-3)) * (self.wheel_radius__ * 2 * pi)
+                (left_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
             )
 
             self.vx = (self.R_encoder_m_s + self.L_encoder_m_s) / 2.0
@@ -437,8 +438,8 @@ class ControllerServer(LifecycleNode):
             #     (self.y + self.right_wheel_pos_[1]),
             # ]
 
-            self.left_wheel_pos_ = self.L_encoder_tick_rps * self.dt
-            self.right_wheel_pos_ = self.R_encoder_tick_rps * self.dt
+            self.left_wheel_pos_ = self.L_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
+            self.right_wheel_pos_ = self.R_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
 
             self.total_elapsed_time += self.dt
             self.starting_time_ = self.current_time
@@ -613,6 +614,8 @@ class ControllerServer(LifecycleNode):
             )
             self.odom_publisher_.publish(self.odom_msg)
 
+    def wheel_tick_to_rpm(self, pulse_time: float) -> float:
+        return 60/pulse_time
 
 def main(args=None):
     rclpy.init(args=args)

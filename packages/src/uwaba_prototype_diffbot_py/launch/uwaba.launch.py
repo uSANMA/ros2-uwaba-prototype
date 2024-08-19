@@ -102,7 +102,7 @@ def generate_launch_description():
             # IncludeLaunchDescription(
             #     PythonLaunchDescriptionSource(nav2_launch_bringup)
             # ),
-            # agent_node,
+            agent_node,
             server_node,
             client_node,
             joint_state_publisher_node,
