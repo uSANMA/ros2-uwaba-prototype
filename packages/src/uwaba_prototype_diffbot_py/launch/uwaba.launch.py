@@ -103,7 +103,7 @@ def generate_launch_description():
             agent_node,
             server_node,
             client_node,
-            # joint_state_publisher_node,
+            joint_state_publisher_node,
             robot_state_publisher_node,
             robot_localization_node,
             rviz_node,

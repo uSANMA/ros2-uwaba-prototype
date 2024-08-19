@@ -168,10 +168,11 @@ class ControllerServer(LifecycleNode):
 
         self.joint_state = JointState()
         self.joint_state.header.frame_id = "wheels_states"
-        self.joint_state.name = [
-            "Left_sprocket_base_joint",
-            "Right_sprocket_base_joint",
-        ]
+        # self.joint_state.name = [
+        #     "Left_sprocket_base_joint",
+        #     "Right_sprocket_base_joint",
+        # ]
+        self.joint_state.name = ["", ""]
         self.joint_state.position = [0.0, 0.0]
 
         self.odom_trans = TransformStamped()
@@ -410,7 +411,7 @@ class ControllerServer(LifecycleNode):
             self.vx = (right_motor_vel + left_motor_vel) / 2.0
             self.vth = (right_motor_vel - left_motor_vel) / self.wheels_separation__
 
-            self.odom_calc(self.dt, self.vx, self.vth)
+            self.pos_calc(self.dt, self.vx, self.vth)
 
             self.total_elapsed_time += self.dt
             self.starting_time_ = self.current_time
@@ -517,7 +518,7 @@ class ControllerServer(LifecycleNode):
         self, current_time, set_joint_state: JointState, vx
     ) -> JointState:
         set_joint_state.header.stamp = current_time.to_msg()
-        set_joint_state.position = [self.x, self.x]
+        set_joint_state.position = [(self.x), (self.x)]
         set_joint_state.velocity = [vx, vx]
         return set_joint_state
 
@@ -544,7 +545,8 @@ class ControllerServer(LifecycleNode):
         )
         return set_orientation
 
-    def odom_calc(self, dt, vx, vth, vy=0.0) -> float:
+    def pos_calc(self, dt, vx, vth, vy=0.0) -> float:
+        # For differential bots the lateral velocity is zero, so vy = 0.0
         delta_x = float((vx * cos(self.th) - vy * sin(self.th)) * dt)
         delta_y = float((vx * sin(self.th) + vy * cos(self.th)) * dt)
         delta_th = float(vth * dt)
@@ -572,6 +574,7 @@ class ControllerServer(LifecycleNode):
                 self.current_time, self.joint_state, self.vx
             )
             self.joint_state_publisher_.publish(self.joint_state)
+        pass
 
     def odom_publish(self):
         with self.timing_lock_:
