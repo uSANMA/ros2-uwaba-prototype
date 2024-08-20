@@ -415,18 +415,23 @@ class ControllerServer(LifecycleNode):
 
             # Calculate the real rad/s value from encoder
             # 31.25e-3 is related to the amount of times that each pulse is given towards a revolution
-            self.R_encoder_m_s = (
-                (right_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
-            )
-            self.L_encoder_m_s = (
-                (left_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
-            )
+            # self.R_encoder_m_s = (
+            #     (right_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
+            # )
+            # self.L_encoder_m_s = (
+            #     (left_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
+            # )
 
-            self.vx = (self.R_encoder_m_s + self.L_encoder_m_s) / 2.0
+            # self.vx = (self.R_encoder_m_s + self.L_encoder_m_s) / 2.0
+            # self.vth = (
+            #     self.R_encoder_m_s - self.L_encoder_m_s
+            # ) / self.wheels_separation__
+
+            self.vx = (right_motor_vel + left_motor_vel) / 2.0
             self.vth = (
-                self.R_encoder_m_s - self.L_encoder_m_s
+                right_motor_vel - left_motor_vel
             ) / self.wheels_separation__
-
+            
             self.pos_calc(self.dt, self.vx, self.vth)
 
             # self.left_wheel_global_ = [
@@ -438,8 +443,10 @@ class ControllerServer(LifecycleNode):
             #     (self.y + self.right_wheel_pos_[1]),
             # ]
 
-            self.left_wheel_pos_ = self.L_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
-            self.right_wheel_pos_ = self.R_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
+            # self.left_wheel_pos_ = self.L_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
+            # self.right_wheel_pos_ = self.R_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
+            self.left_wheel_pos_ = left_motor_vel * self.dt
+            self.right_wheel_pos_ = right_motor_vel * self.dt
 
             self.total_elapsed_time += self.dt
             self.starting_time_ = self.current_time
