@@ -154,6 +154,7 @@ class ControllerServer(LifecycleNode):
         self.total_elapsed_time = 0.0
         self.left_wheel_pos_ = 0.0
         self.right_wheel_pos_ = 0.0
+        self.gear_ratio_ = 18.8
 
         self.orientation = Quaternion()
 
@@ -181,14 +182,6 @@ class ControllerServer(LifecycleNode):
             "Left_sprocket_base_joint",
             "Right_sprocket_base_joint",
         ]
-        # self.left_wheel_pos_ = [
-        #     -(self.base_length__ / 2.0),
-        #     (self.wheels_separation__ / 2.0),
-        # ]
-        # self.right_wheel_pos_ = [
-        #     -(self.base_length__ / 2.0),
-        #     -(self.wheels_separation__ / 2.0),
-        # ]
 
         self.odom_msg = Odometry()
         self.odom_msg.header.frame_id = "odom"
@@ -409,47 +402,41 @@ class ControllerServer(LifecycleNode):
             self.dt = self.dt.to_msg().sec + (self.dt.to_msg().nanosec / 1e9)
 
             if self.motor_velocity_.velocity:
-                right_motor_vel, left_motor_vel = self.motor_velocity_.velocity
+                right_encoder, left_encoder = self.motor_velocity_.velocity
             else:
-                right_motor_vel, left_motor_vel = [0.0, 0.0]
+                right_encoder, left_encoder = [0.0, 0.0]
 
-            # Calculate the real rad/s value from encoder
-            # 31.25e-3 is related to the amount of times that each pulse is given towards a revolution
-            # self.R_encoder_m_s = (
-            #     (right_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
-            # )
-            # self.L_encoder_m_s = (
-            #     (left_motor_vel * self.wheel_tick_to_rpm(0.03125)) / (self.wheel_radius__ * 2 * pi)
-            # )
+            self.vx = (right_encoder + left_encoder) / 2.0
+            self.vth = (right_encoder - left_encoder) / self.wheels_separation__
 
-            # self.vx = (self.R_encoder_m_s + self.L_encoder_m_s) / 2.0
-            # self.vth = (
-            #     self.R_encoder_m_s - self.L_encoder_m_s
-            # ) / self.wheels_separation__
-
-            self.vx = (right_motor_vel + left_motor_vel) / 2.0
-            self.vth = (
-                right_motor_vel - left_motor_vel
-            ) / self.wheels_separation__
-            
             self.pos_calc(self.dt, self.vx, self.vth)
 
-            # self.left_wheel_global_ = [
-            #     (self.x + self.left_wheel_pos_[0]),
-            #     (self.y + self.left_wheel_pos_[1]),
-            # ]
-            # self.right_wheel_global_ = [
-            #     (self.x + self.right_wheel_pos_[0]),
-            #     (self.y + self.right_wheel_pos_[1]),
-            # ]
+            # L_wheel_theta = left_encoder / self.gear_ratio_
+            # R_wheel_theta = right_encoder / self.gear_ratio_
 
-            # self.left_wheel_pos_ = self.L_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
-            # self.right_wheel_pos_ = self.R_encoder_m_s * (self.wheel_radius__ * 2 * pi) * self.dt
-            self.left_wheel_pos_ = left_motor_vel * self.dt
-            self.right_wheel_pos_ = right_motor_vel * self.dt
+            # self.left_wheel_pos_ += L_wheel_theta
+            # self.right_wheel_pos_ += R_wheel_theta
+            
+            self.left_wheel_pos_ += left_encoder
+            self.right_wheel_pos_ += right_encoder
+
+            if self.left_wheel_pos_ >= (2.0 * pi):
+                self.left_wheel_pos_ = 0.0
+            if self.right_wheel_pos_ >= (2.0 * pi):
+                self.right_wheel_pos_ = 0.0
 
             self.total_elapsed_time += self.dt
             self.starting_time_ = self.current_time
+
+    def pos_calc(self, dt, vx, vth, vy=0.0):
+        # For differential bots the lateral velocity is zero, so vy = 0.0
+        delta_x = float((vx * cos(self.th) - vy * sin(self.th)) * dt)
+        delta_y = float((vx * sin(self.th) + vy * cos(self.th)) * dt)
+        delta_th = float(vth * dt)
+
+        self.x += delta_x
+        self.y += delta_y
+        self.th += delta_th
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
@@ -585,17 +572,6 @@ class ControllerServer(LifecycleNode):
         )
         return set_orientation
 
-    def pos_calc(self, dt, vx, vth, vy=0.0) -> float:
-        # For differential bots the lateral velocity is zero, so vy = 0.0
-        delta_x = float((vx * cos(self.th) - vy * sin(self.th)) * dt)
-        delta_y = float((vx * sin(self.th) + vy * cos(self.th)) * dt)
-        delta_th = float(vth * dt)
-
-        self.x += delta_x
-        self.y += delta_y
-        self.th += delta_th
-        return delta_x, delta_y, delta_th
-
     def joint_state_publish(self):
         with self.timing_lock_:
             self.joint_state = self.set_joint_state_pkg(
@@ -622,7 +598,8 @@ class ControllerServer(LifecycleNode):
             self.odom_publisher_.publish(self.odom_msg)
 
     def wheel_tick_to_rpm(self, pulse_time: float) -> float:
-        return 60/pulse_time
+        return 60 / pulse_time
+
 
 def main(args=None):
     rclpy.init(args=args)
