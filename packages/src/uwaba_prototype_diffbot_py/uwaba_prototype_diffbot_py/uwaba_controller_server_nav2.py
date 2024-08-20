@@ -19,7 +19,7 @@ from tf2_ros import TransformBroadcaster, TransformStamped
 from uwaba_prototype_interfaces.action import ControlActions
 
 from geometry_msgs.msg import TwistStamped, Quaternion, Vector3, Twist
-from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
+from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryState
 from nav_msgs.msg import Odometry
 
 
@@ -76,6 +76,10 @@ class ControllerServer(LifecycleNode):
         self.lidar_frame__ = self.get_parameter("lidar_frame").value
         self.declare_parameter("imu_frame", "imu_frame")
         self.imu_frame__ = self.get_parameter("imu_frame").value
+        self.declare_parameter("temperature_frame", "temp_frame")
+        self.temperature_frame__ = self.get_parameter("temperature_frame").value
+        self.declare_parameter("battery_frame", "bat_frame")
+        self.battery_frame__ = self.get_parameter("battery_frame").value
         self.declare_parameter("main_rate", 1.0)
         self.main_rate__ = self.get_parameter("main_rate").value
         self.declare_parameter("uros_encoder_topic", "micro_encoders")
@@ -88,6 +92,8 @@ class ControllerServer(LifecycleNode):
         ).value
         self.declare_parameter("uros_lidar_topic", "micro_laser")
         self.uros_lidar_topic__ = self.get_parameter("uros_lidar_topic").value
+        self.declare_parameter("uros_battery_topic", "micro_batterypack")
+        self.uros_battery_topic__ = self.get_parameter("uros_battery_topic").value
         self.declare_parameter("odom_topic", "odom")
         self.odom_topic__ = self.get_parameter("odom_topic").value
         self.declare_parameter("joint_states_topic", "joint_states")
@@ -98,6 +104,10 @@ class ControllerServer(LifecycleNode):
         self.imu_topic__ = self.get_parameter("imu_topic").value
         self.declare_parameter("scan_topic", "scan")
         self.scan_topic__ = self.get_parameter("scan_topic").value
+        self.declare_parameter("temperature_topic", "temp")
+        self.temperature_topic__ = self.get_parameter("temperature_topic").value
+        self.declare_parameter("battery_pack_topic", "bat")
+        self.battery_pack_topic__ = self.get_parameter("battery_pack_topic").value
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info(
@@ -139,6 +149,18 @@ class ControllerServer(LifecycleNode):
         self.scan_publisher_ = self.create_publisher(
             LaserScan,
             f"{self.scan_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
+        )
+        self.temperature_publisher_ = self.create_publisher(
+            Temperature,
+            f"{self.temperature_topic__}",
+            self.qos_profile_,
+            callback_group=ReentrantCallbackGroup(),
+        )
+        self.battery_pack_publisher_ = self.create_publisher(
+            BatteryState,
+            f"{self.battery_pack_topic__}",
             self.qos_profile_,
             callback_group=ReentrantCallbackGroup(),
         )
@@ -193,6 +215,12 @@ class ControllerServer(LifecycleNode):
         self.scan_msg = LaserScan()
         self.scan_msg.header.frame_id = self.lidar_frame__
 
+        self.temp_msg = Temperature()
+        self.temp_msg.header.frame_id = self.temperature_frame__
+
+        self.bat_msg = BatteryState()
+        self.bat_msg.header.frame_id = self.battery_frame__
+
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -234,21 +262,25 @@ class ControllerServer(LifecycleNode):
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
         )
+        self.uros_bate_subscriber = self.create_subscription(
+            BatteryState,
+            f"{self.uros_battery_topic__}",
+            self.uros_bat_subscription,
+            self.qos_profile_micro_,
+            callback_group=ReentrantCallbackGroup(),
+        )
 
         self.joint_state_publish_rate = self.create_timer(
             (1.0 / self.joint_state_rate__),
             self.joint_state_publish,
             callback_group=ReentrantCallbackGroup(),
         )
-
         self.odom_publish_rate = self.create_timer(
             (1.0 / self.odom_rate__),
             self.odom_publish,
             callback_group=ReentrantCallbackGroup(),
         )
-
         self.starting_time_ = self.get_clock().now()
-
         self.main_execution_rate = self.create_timer(
             (1.0 / self.main_rate__),
             self.main_execution,
@@ -411,18 +443,12 @@ class ControllerServer(LifecycleNode):
 
             self.pos_calc(self.dt, self.vx, self.vth)
 
-            # L_wheel_theta = left_encoder / self.gear_ratio_
-            # R_wheel_theta = right_encoder / self.gear_ratio_
-
-            # self.left_wheel_pos_ += L_wheel_theta
-            # self.right_wheel_pos_ += R_wheel_theta
-            
             self.left_wheel_pos_ += left_encoder
             self.right_wheel_pos_ += right_encoder
 
-            if self.left_wheel_pos_ >= (2.0 * pi):
+            if abs(self.left_wheel_pos_) >= (2.0 * pi):
                 self.left_wheel_pos_ = 0.0
-            if self.right_wheel_pos_ >= (2.0 * pi):
+            if abs(self.right_wheel_pos_) >= (2.0 * pi):
                 self.right_wheel_pos_ = 0.0
 
             self.total_elapsed_time += self.dt
@@ -455,7 +481,6 @@ class ControllerServer(LifecycleNode):
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
-        self.scan_msg.header.frame_id = laser_msgs.header.frame_id
         self.scan_msg.angle_min = laser_msgs.angle_min
         self.scan_msg.angle_max = laser_msgs.angle_max
         self.scan_msg.angle_increment = laser_msgs.angle_increment
@@ -469,7 +494,6 @@ class ControllerServer(LifecycleNode):
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         self.imu_msg.header.stamp = imu_msgs.header.stamp
-        self.imu_msg.header.frame_id = imu_msgs.header.frame_id
         self.imu_msg.orientation = imu_msgs.orientation
         self.orientation = self.imu_msg.orientation
         self.imu_msg.angular_velocity = imu_msgs.angular_velocity
@@ -477,9 +501,15 @@ class ControllerServer(LifecycleNode):
         self.imu_publisher_.publish(self.imu_msg)
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
-        if not self.got_temp_package_:
-            with self.timing_lock_:
-                self.got_temp_package_ = True
+        self.temp_msg.header.stamp = temp_msgs.header.stamp
+        self.temp_msg.temperature = temp_msgs.temperature
+        self.temp_msg.variance = temp_msgs.variance
+        self.temperature_publisher_.publish(self.temp_msg)
+
+    def uros_bat_subscription(self, bat_msgs: BatteryState):
+        self.bat_msg.header.stamp = bat_msgs.header.stamp
+        self.bat_msg.
+        self.battery_pack_publisher_.publish(self.bat_msg)
 
     def set_imu_pkg(
         self,
