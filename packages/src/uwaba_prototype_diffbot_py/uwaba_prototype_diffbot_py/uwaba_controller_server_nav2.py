@@ -507,9 +507,24 @@ class ControllerServer(LifecycleNode):
         self.temperature_publisher_.publish(self.temp_msg)
 
     def uros_bat_subscription(self, bat_msgs: BatteryState):
-        self.bat_msg.header.stamp = bat_msgs.header.stamp
-        self.bat_msg.
-        self.battery_pack_publisher_.publish(self.bat_msg)
+        # self.bat_msg.header.stamp = bat_msgs.header.stamp
+        # self.bat_msg.voltage = bat_msgs.voltage
+        # self.bat_msg.temperature = bat_msgs.temperature
+        # self.bat_msg.current = bat_msgs.current
+        # self.bat_msg.charge = bat_msgs.charge
+        # self.bat_msg.capacity = bat_msgs.capacity
+        # self.bat_msg.design_capacity = bat_msgs.design_capacity
+        # self.bat_msg.percentage = bat_msgs.percentage
+        # self.bat_msg.power_supply_status = bat_msgs.power_supply_status
+        # self.bat_msg.power_supply_health = bat_msgs.power_supply_health
+        # self.bat_msg.power_supply_technology = bat_msgs.power_supply_technology
+        # self.bat_msg.present = bat_msgs.present
+        # self.bat_msg.cell_voltage = bat_msgs.cell_voltage
+        # self.bat_msg.cell_temperature = bat_msgs.temperature
+        # self.bat_msg.location = bat_msgs.location
+        # self.bat_msg.serial_number = bat_msgs.serial_number
+        # self.battery_pack_publisher_.publish(self.bat_msg)
+        pass
 
     def set_imu_pkg(
         self,
