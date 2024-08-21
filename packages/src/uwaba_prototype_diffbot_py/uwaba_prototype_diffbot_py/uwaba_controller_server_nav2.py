@@ -295,7 +295,6 @@ class ControllerServer(LifecycleNode):
                 \n-> Wheel Separation: \033[1;34;40m{self.wheels_separation__}\033[0m [m]\
                     \n-> Wheel Radius: \033[1;34;40m{self.wheel_radius__}\033[0m [m]\
                         \n-> Main Rate: \033[1;34;40m{self.main_rate__}\033[0m [Hz]\
-                            \n-> Transform Broadcast Rate: \033[1;34;40m{self.transform_broadcast_rate__}\033[0m [Hz]\
                                 \n-> Odom Rate: \033[1;34;40m{self.odom_rate__}\033[0m [Hz]\
                                     \n-> Joint States Rate: \033[1;34;40m{self.joint_state_rate__}\033[0m [Hz]"
         )
@@ -481,6 +480,7 @@ class ControllerServer(LifecycleNode):
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
+        frame_id = laser_msgs.header.frame_id
         self.scan_msg.angle_min = laser_msgs.angle_min
         self.scan_msg.angle_max = laser_msgs.angle_max
         self.scan_msg.angle_increment = laser_msgs.angle_increment
@@ -494,6 +494,7 @@ class ControllerServer(LifecycleNode):
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         self.imu_msg.header.stamp = imu_msgs.header.stamp
+        imu_frame = imu_msgs.header.frame_id
         self.imu_msg.orientation = imu_msgs.orientation
         self.orientation = self.imu_msg.orientation
         self.imu_msg.angular_velocity = imu_msgs.angular_velocity
@@ -642,8 +643,6 @@ class ControllerServer(LifecycleNode):
             )
             self.odom_publisher_.publish(self.odom_msg)
 
-    def wheel_tick_to_rpm(self, pulse_time: float) -> float:
-        return 60 / pulse_time
 
 
 def main(args=None):
