@@ -7,6 +7,17 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
 <img src="https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/docs/uSANMA%20Stack%20English.png" width="800" align="center">
 </p>
 
+## REQUIRED PACKAGES
+```
+sudo apt install ros-humble-navigation2 -y
+sudo apt install ros-humble-nav2-bringup -y
+sudo apt install ros-humble-xacro -y
+sudo apt install ros-humble-joint-state-publisher-gui -y
+sudo apt install ros-humble-tf-transformations -y
+sudo apt install ros-humble-robot-localization -y
+sudo apt install ros-humble-urdf-tutorial -y
+```
+
 ## PROJECT NOTES
 ### List of implementations
 - [x] Add [URDF](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_description/urdf/uwaba_prototype.urdf.xacro) file from uwaba's model
