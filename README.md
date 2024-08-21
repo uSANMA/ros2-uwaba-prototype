@@ -18,6 +18,12 @@ sudo apt install ros-humble-robot-localization -y
 sudo apt install ros-humble-urdf-tutorial -y
 ```
 
+## BUILD PROJECT
+```
+<source_ros2_installation>
+colcon build --packages-select uwaba_prototype_interfaces uwaba_prototype_description uwaba_prototype_diffbot_py
+```
+
 ## PROJECT NOTES
 ### List of implementations
 - [x] Add [URDF](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_description/urdf/uwaba_prototype.urdf.xacro) file from uwaba's model
