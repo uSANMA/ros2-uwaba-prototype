@@ -23,12 +23,6 @@ from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryStat
 from nav_msgs.msg import Odometry
 
 
-###################################################################################################
-#                                                                                                 #
-# REMINDER FOR FINAL IMPLEMENTATION: Please remove all get_logger() to avoid delaying the process #
-#                                                                                                 #
-###################################################################################################
-
 
 class ControllerServer(LifecycleNode):
     def __init__(self):

@@ -19,9 +19,10 @@ from uwaba_prototype_interfaces.msg import ServerLog
 
 class ControllerManager(Node):
     def __init__(self):
-        super().__init__("uwaba_controller_manager_node")
+        self.node_name = "uwaba_controller_manager_node"
+        super().__init__(f"{self.node_name}")
 
-        self.declare_parameter("managed_node_name", "uwaba_controller_server_node")
+        self.declare_parameter("managed_node_name", self.node_name)
         node_name = self.get_parameter("managed_node_name").value
 
         self.get_logger().info(f"Server Node: {node_name}")

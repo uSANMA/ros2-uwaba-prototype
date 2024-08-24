@@ -27,6 +27,4 @@ uwaba_controller_server_node:
 
 uwaba_controller_manager_node:
   ros__parameters:
-    goal_request: "activate main loop"
-    child_frame_id: "uwaba_prototype_action"
     managed_node_name: "uwaba_controller_server_node"
