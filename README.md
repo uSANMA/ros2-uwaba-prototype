@@ -16,6 +16,7 @@ sudo apt install ros-humble-joint-state-publisher-gui -y
 sudo apt install ros-humble-tf-transformations -y
 sudo apt install ros-humble-robot-localization -y
 sudo apt install ros-humble-urdf-tutorial -y
+sudo pip3 install transform3d
 ```
 
 ## BUILD PROJECT
