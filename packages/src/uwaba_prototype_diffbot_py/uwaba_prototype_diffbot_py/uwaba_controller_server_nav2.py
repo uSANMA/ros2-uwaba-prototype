@@ -174,7 +174,10 @@ class ControllerServer(LifecycleNode):
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
-        self.alpha = 0.98  # Complementary filter constant (0 < alpha < 1)
+        self.alpha = 0.99  # Complementary filter constant (0 < alpha < 1)
+        self.omegaT = 7.2921159e-5
+        self.latitude_cornelio = -23.1883438
+        self.earthRotationZ = self.omegaT * cos(self.latitude_cornelio * pi / 180.0)
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -446,20 +449,20 @@ class ControllerServer(LifecycleNode):
 
             self.ori_calc(
                 self.dt,
-                self.imu_msg.angular_velocity.x,
                 self.imu_msg.angular_velocity.y,
+                self.imu_msg.angular_velocity.x,
                 self.imu_msg.angular_velocity.z,
                 self.imu_msg.linear_acceleration.x,
                 self.imu_msg.linear_acceleration.y,
                 self.imu_msg.linear_acceleration.z,
             )
 
-            self.ori_calc_simple(
-                self.dt,
-                self.imu_msg.angular_velocity.x,
-                self.imu_msg.angular_velocity.y,
-                self.imu_msg.angular_velocity.z,
-            )
+            # self.ori_calc_simple(
+            #     self.dt,
+            #     self.imu_msg.angular_velocity.z,
+            #     self.imu_msg.angular_velocity.x,
+            #     self.imu_msg.angular_velocity.y,
+            # )
 
             if abs(self.left_wheel_pos_) >= (2.0 * pi):
                 self.left_wheel_pos_ = 0.0
@@ -487,7 +490,7 @@ class ControllerServer(LifecycleNode):
     def ori_calc(self, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
         roll_gyro = self.roll + gyro_x * dt
         pitch_gyro = self.pitch + gyro_y * dt
-        yaw_gyro = self.yaw + gyro_z * dt
+        yaw_gyro = self.yaw + (gyro_z - self.earthRotationZ) * dt
 
         roll_accel = atan2(ay, az)
         pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
@@ -497,19 +500,39 @@ class ControllerServer(LifecycleNode):
         self.yaw = yaw_gyro
 
         self.orientation_imu = self.quad_calc(
-            self.orientation_imu, self.roll, self.pitch, self.yaw
+            self.orientation_imu, self.yaw, self.roll, self.pitch
         )
 
     def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
+        self.orientation_imu = self.quad_calc(
+            self.orientation_imu, self.roll, self.pitch, self.yaw
+        )
 
     def uros_imu_subscription(self, imu_msgs: Imu):
+        # Changed axis due to IMU CI placement onto the board
         with self.timing_lock_:
             self.imu_msg.header.stamp = imu_msgs.header.stamp
-            self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-            self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
+            (
+                self.imu_msg.angular_velocity.y,
+                self.imu_msg.angular_velocity.x,
+                self.imu_msg.angular_velocity.z,
+            ) = (
+                imu_msgs.angular_velocity.x,
+                imu_msgs.angular_velocity.y,
+                imu_msgs.angular_velocity.z,
+            )
+            (
+                self.imu_msg.linear_acceleration.y,
+                self.imu_msg.linear_acceleration.x,
+                self.imu_msg.linear_acceleration.z,
+            ) = (
+                imu_msgs.linear_acceleration.x,
+                imu_msgs.linear_acceleration.y,
+                imu_msgs.linear_acceleration.z,
+            )
             self.imu_msg.orientation = self.orientation_imu
             self.imu_publisher_.publish(self.imu_msg)
 
