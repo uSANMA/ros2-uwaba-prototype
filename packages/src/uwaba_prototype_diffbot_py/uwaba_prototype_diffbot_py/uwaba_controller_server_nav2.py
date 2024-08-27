@@ -494,11 +494,12 @@ class ControllerServer(LifecycleNode):
         )
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        self.imu_msg.header.stamp = imu_msgs.header.stamp
-        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
-        self.imu_msg.orientation = self.orientation_imu
-        self.imu_publisher_.publish(self.imu_msg)
+        with self.timing_lock_:
+            self.imu_msg.header.stamp = imu_msgs.header.stamp
+            self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+            self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
+            self.imu_msg.orientation = self.orientation_imu
+            self.imu_publisher_.publish(self.imu_msg)
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
