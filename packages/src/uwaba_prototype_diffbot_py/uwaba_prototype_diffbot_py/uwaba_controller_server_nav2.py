@@ -23,7 +23,6 @@ from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryStat
 from nav_msgs.msg import Odometry
 
 
-
 class ControllerServer(LifecycleNode):
     def __init__(self):
         self.lf_node_name_ = "uwaba_controller_server_node"
@@ -171,8 +170,10 @@ class ControllerServer(LifecycleNode):
         self.left_wheel_pos_ = 0.0
         self.right_wheel_pos_ = 0.0
         self.gear_ratio_ = 18.8
+        self.null_ori = np.full((9,), -1)
 
         self.orientation = Quaternion()
+        self.orientation_imu = Quaternion()
 
         self.angular_velocity = Vector3()
 
@@ -439,6 +440,7 @@ class ControllerServer(LifecycleNode):
             self.left_wheel_pos_ += left_encoder
             self.right_wheel_pos_ += right_encoder
 
+
             if abs(self.left_wheel_pos_) >= (2.0 * pi):
                 self.left_wheel_pos_ = 0.0
             if abs(self.right_wheel_pos_) >= (2.0 * pi):
@@ -456,6 +458,9 @@ class ControllerServer(LifecycleNode):
         self.x += delta_x
         self.y += delta_y
         self.th += delta_th
+        
+    def null_cov_n(self, n=1):
+        return np.full((n,), -1)
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
@@ -489,9 +494,11 @@ class ControllerServer(LifecycleNode):
     def uros_imu_subscription(self, imu_msgs: Imu):
         self.imu_msg.header.stamp = imu_msgs.header.stamp
         imu_frame = imu_msgs.header.frame_id
-        self.imu_msg.orientation = imu_msgs.orientation
-        self.orientation = self.imu_msg.orientation
         self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+        self.imu_msg.orientation = self.orientation_calc(
+            self.orientation_imu, 0.0, 0.0, 0.0
+        )
+        self.imu_msg.orientation_covariance = self.null_cov_n(9)
         self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
         self.imu_publisher_.publish(self.imu_msg)
 
@@ -521,35 +528,35 @@ class ControllerServer(LifecycleNode):
         # self.battery_pack_publisher_.publish(self.bat_msg)
         pass
 
-    def set_imu_pkg(
-        self,
-        current_time,
-        set_imu_msg: Imu,
-        frame_id,
-        th,
-        set_orientation: Quaternion,
-        set_angular_velocity: Vector3,
-        set_linear_acceleration: Vector3,
-    ) -> Imu:
-        set_imu_msg.header.stamp = current_time.to_msg()
-        set_imu_msg.header.frame_id = frame_id
-        set_imu_msg.orientation = self.orientation_calc(set_orientation, th)
-        set_imu_msg.angular_velocity = set_angular_velocity
-        set_imu_msg.linear_acceleration = set_linear_acceleration
-        return set_imu_msg
+    # def set_imu_pkg(
+    #    self,
+    #    current_time,
+    #    set_imu_msg: Imu,
+    #    frame_id,
+    #    th,
+    #    set_orientation: Quaternion,
+    #    set_angular_velocity: Vector3,
+    #    set_linear_acceleration: Vector3,
+    # ) -> Imu:
+    #    set_imu_msg.header.stamp = current_time.to_msg()
+    #    set_imu_msg.header.frame_id = frame_id
+    #    set_imu_msg.orientation = self.orientation_calc(set_orientation, th)
+    #    set_imu_msg.angular_velocity = set_angular_velocity
+    #    set_imu_msg.linear_acceleration = set_linear_acceleration
+    #    return set_imu_msg
 
-    def set_twist_pkg(
-        self, current_time, set_twist_msg: TwistStamped, frame_id, vx, vth
-    ) -> TwistStamped:
-        set_twist_msg.header.stamp = current_time.to_msg()
-        set_twist_msg.header.frame_id = frame_id
-        set_twist_msg.twist.linear.x = vx
-        set_twist_msg.twist.linear.y = 0.0
-        set_twist_msg.twist.linear.z = 0.0
-        set_twist_msg.twist.angular.x = 0.0
-        set_twist_msg.twist.angular.y = 0.0
-        set_twist_msg.twist.angular.z = vth
-        return set_twist_msg
+    # def set_twist_pkg(
+    #    self, current_time, set_twist_msg: TwistStamped, frame_id, vx, vth
+    # ) -> TwistStamped:
+    #    set_twist_msg.header.stamp = current_time.to_msg()
+    #   set_twist_msg.header.frame_id = frame_id
+    #    set_twist_msg.twist.linear.x = vx
+    #    set_twist_msg.twist.linear.y = 0.0
+    #    set_twist_msg.twist.linear.z = 0.0
+    #    set_twist_msg.twist.angular.x = 0.0
+    #    set_twist_msg.twist.angular.y = 0.0
+    #    set_twist_msg.twist.angular.z = vth
+    #    return set_twist_msg
 
     def set_odom_pkg(
         self,
@@ -589,26 +596,27 @@ class ControllerServer(LifecycleNode):
         set_joint_state.velocity = vx
         return set_joint_state
 
-    def set_state_transform(
-        self,
-        current_time,
-        set_odom_trans: TransformStamped,
-        pos_x,
-        pos_y,
-        th,
-        set_orientation: Quaternion,
-    ) -> TransformStamped:
-        set_odom_trans.header.stamp = current_time.to_msg()
-        set_odom_trans.transform.translation.x = pos_x
-        set_odom_trans.transform.translation.y = pos_y
-        set_odom_trans.transform.translation.z = 0.0
-        self.orientation = self.orientation_calc(set_orientation, th)
-        set_odom_trans.transform.rotation = self.orientation
-        return set_odom_trans
+    # def set_state_transform(
+    #    self,
+    #    current_time,
+    #    set_odom_trans: TransformStamped,
+    #    pos_x,
+    #    pos_y,
+    #    th,
+    # ) -> TransformStamped:
+    #    set_odom_trans.header.stamp = current_time.to_msg()
+    #    set_odom_trans.transform.translation.x = pos_x
+    #    set_odom_trans.transform.translation.y = pos_y
+    #    set_odom_trans.transform.translation.z = 0.0
+    #    self.orientation = self.orientation_calc(set_orientation, th)
+    #    set_odom_trans.transform.rotation = self.orientation
+    #    return set_odom_trans
 
-    def orientation_calc(self, set_orientation: Quaternion, az) -> Quaternion:
+    def orientation_calc(
+        self, set_orientation: Quaternion, az, ax=0.0, ay=0.0
+    ) -> Quaternion:
         set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
-            tf_transformations.quaternion_from_euler(0.0, 0.0, az)
+            tf_transformations.quaternion_from_euler(ax, ay, az)
         )
         return set_orientation
 
@@ -636,7 +644,6 @@ class ControllerServer(LifecycleNode):
                 self.orientation,
             )
             self.odom_publisher_.publish(self.odom_msg)
-
 
 
 def main(args=None):
