@@ -4,7 +4,7 @@ import threading
 import time
 import tf_transformations
 import numpy as np
-from math import sin, cos, pi
+from math import sin, cos, pi, atan2, sqrt
 
 from rclpy.lifecycle import LifecycleNode
 from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
@@ -171,6 +171,10 @@ class ControllerServer(LifecycleNode):
         self.right_wheel_pos_ = 0.0
         self.gear_ratio_ = 18.8
         self.null_ori = np.full((9,), -1)
+        self.roll = 0.0
+        self.pitch = 0.0
+        self.yaw = 0.0
+        self.alpha = 0.98  # Complementary filter constant (0 < alpha < 1)
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -440,6 +444,15 @@ class ControllerServer(LifecycleNode):
             self.left_wheel_pos_ += left_encoder
             self.right_wheel_pos_ += right_encoder
 
+            self.ori_calc(
+                self.dt,
+                self.imu_msg.angular_velocity.x,
+                self.imu_msg.angular_velocity.y,
+                self.imu_msg.angular_velocity.z,
+                self.imu_msg.linear_acceleration.x,
+                self.imu_msg.linear_acceleration.y,
+                self.imu_msg.linear_acceleration.z,
+            )
 
             if abs(self.left_wheel_pos_) >= (2.0 * pi):
                 self.left_wheel_pos_ = 0.0
@@ -451,6 +464,7 @@ class ControllerServer(LifecycleNode):
 
     def pos_calc(self, dt, vx, vth, vy=0.0):
         # For differential bots the lateral velocity is zero, so vy = 0.0
+        ## This is a transformation matrix so we can exchange info between fixed and moving references
         delta_x = float((vx * cos(self.th) - vy * sin(self.th)) * dt)
         delta_y = float((vx * sin(self.th) + vy * cos(self.th)) * dt)
         delta_th = float(vth * dt)
@@ -458,9 +472,33 @@ class ControllerServer(LifecycleNode):
         self.x += delta_x
         self.y += delta_y
         self.th += delta_th
-        
-    def null_cov_n(self, n=1):
-        return np.full((n,), -1)
+
+    # This is an array filler for covariances
+    def null_cov_n(self, n=0.0, value=-1.0):
+        return np.full((n,), value)
+
+    def ori_calc(self, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
+        roll_gyro = self.roll + gyro_x * dt
+        pitch_gyro = self.pitch + gyro_y * dt
+        yaw_gyro = self.yaw + gyro_z * dt
+
+        roll_accel = atan2(ay, az)
+        pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
+
+        self.roll = self.alpha * roll_gyro + (1 - self.alpha) * roll_accel
+        self.pitch = self.alpha * pitch_gyro + (1 - self.alpha) * pitch_accel
+        self.yaw = yaw_gyro
+
+        self.orientation_imu = self.quad_calc(
+            self.orientation_imu, self.roll, self.pitch, self.yaw
+        )
+
+    def uros_imu_subscription(self, imu_msgs: Imu):
+        self.imu_msg.header.stamp = imu_msgs.header.stamp
+        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
+        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
+        self.imu_msg.orientation = self.orientation_imu
+        self.imu_publisher_.publish(self.imu_msg)
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
@@ -479,7 +517,6 @@ class ControllerServer(LifecycleNode):
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
-        frame_id = laser_msgs.header.frame_id
         self.scan_msg.angle_min = laser_msgs.angle_min
         self.scan_msg.angle_max = laser_msgs.angle_max
         self.scan_msg.angle_increment = laser_msgs.angle_increment
@@ -490,17 +527,6 @@ class ControllerServer(LifecycleNode):
         self.scan_msg.ranges = laser_msgs.ranges
         self.scan_msg.intensities = laser_msgs.intensities
         self.scan_publisher_.publish(self.scan_msg)
-
-    def uros_imu_subscription(self, imu_msgs: Imu):
-        self.imu_msg.header.stamp = imu_msgs.header.stamp
-        imu_frame = imu_msgs.header.frame_id
-        self.imu_msg.angular_velocity = imu_msgs.angular_velocity
-        self.imu_msg.orientation = self.orientation_calc(
-            self.orientation_imu, 0.0, 0.0, 0.0
-        )
-        self.imu_msg.orientation_covariance = self.null_cov_n(9)
-        self.imu_msg.linear_acceleration = imu_msgs.linear_acceleration
-        self.imu_publisher_.publish(self.imu_msg)
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
         self.temp_msg.header.stamp = temp_msgs.header.stamp
@@ -540,7 +566,7 @@ class ControllerServer(LifecycleNode):
     # ) -> Imu:
     #    set_imu_msg.header.stamp = current_time.to_msg()
     #    set_imu_msg.header.frame_id = frame_id
-    #    set_imu_msg.orientation = self.orientation_calc(set_orientation, th)
+    #    set_imu_msg.orientation = self.quad_calc(set_orientation, th)
     #    set_imu_msg.angular_velocity = set_angular_velocity
     #    set_imu_msg.linear_acceleration = set_linear_acceleration
     #    return set_imu_msg
@@ -579,7 +605,7 @@ class ControllerServer(LifecycleNode):
         set_odom_msg.twist.twist.angular.x = 0.0
         set_odom_msg.twist.twist.angular.y = 0.0
         set_odom_msg.twist.twist.angular.z = vth
-        self.orientation = self.orientation_calc(set_orientation, th)
+        self.orientation = self.quad_calc(set_orientation, th)
         set_odom_msg.pose.pose.orientation = self.orientation
         return set_odom_msg
 
@@ -608,13 +634,11 @@ class ControllerServer(LifecycleNode):
     #    set_odom_trans.transform.translation.x = pos_x
     #    set_odom_trans.transform.translation.y = pos_y
     #    set_odom_trans.transform.translation.z = 0.0
-    #    self.orientation = self.orientation_calc(set_orientation, th)
+    #    self.orientation = self.quad_calc(set_orientation, th)
     #    set_odom_trans.transform.rotation = self.orientation
     #    return set_odom_trans
 
-    def orientation_calc(
-        self, set_orientation: Quaternion, az, ax=0.0, ay=0.0
-    ) -> Quaternion:
+    def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
         set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
             tf_transformations.quaternion_from_euler(ax, ay, az)
         )
