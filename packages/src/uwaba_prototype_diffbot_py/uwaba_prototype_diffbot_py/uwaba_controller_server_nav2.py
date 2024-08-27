@@ -454,6 +454,13 @@ class ControllerServer(LifecycleNode):
                 self.imu_msg.linear_acceleration.z,
             )
 
+            self.ori_calc_simple(
+                self.dt,
+                self.imu_msg.angular_velocity.x,
+                self.imu_msg.angular_velocity.y,
+                self.imu_msg.angular_velocity.z,
+            )
+
             if abs(self.left_wheel_pos_) >= (2.0 * pi):
                 self.left_wheel_pos_ = 0.0
             if abs(self.right_wheel_pos_) >= (2.0 * pi):
@@ -492,6 +499,11 @@ class ControllerServer(LifecycleNode):
         self.orientation_imu = self.quad_calc(
             self.orientation_imu, self.roll, self.pitch, self.yaw
         )
+
+    def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
+        self.roll += gyro_x * dt
+        self.pitch += gyro_y * dt
+        self.yaw += gyro_z * dt
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         with self.timing_lock_:
