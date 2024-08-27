@@ -2,6 +2,7 @@
 import rclpy
 import threading
 import time
+import requests
 import tf_transformations
 import numpy as np
 from math import sin, cos, pi, atan2, sqrt
@@ -174,10 +175,10 @@ class ControllerServer(LifecycleNode):
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
-        self.alpha = 0.99  # Complementary filter constant (0 < alpha < 1)
+        self.alpha = 0.88  # Complementary filter constant (0 < alpha < 1)
         self.omegaT = 7.2921159e-5
         self.latitude_cornelio = -23.1883438
-        self.earthRotationZ = self.omegaT * cos(self.latitude_cornelio * pi / 180.0)
+        self.earthRotationZ = self.omegaT * cos((self.latitude_cornelio * pi) / 180.0)
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -490,7 +491,7 @@ class ControllerServer(LifecycleNode):
     def ori_calc(self, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
         roll_gyro = self.roll + gyro_x * dt
         pitch_gyro = self.pitch + gyro_y * dt
-        yaw_gyro = self.yaw + (gyro_z - self.earthRotationZ) * dt
+        yaw_gyro = self.yaw + gyro_z * dt
 
         roll_accel = atan2(ay, az)
         pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
@@ -504,7 +505,7 @@ class ControllerServer(LifecycleNode):
         )
 
     def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
-        self.roll += gyro_x * dt
+        self.roll += (gyro_x - self.earthRotationZ) * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
         self.orientation_imu = self.quad_calc(
@@ -520,7 +521,7 @@ class ControllerServer(LifecycleNode):
                 self.imu_msg.angular_velocity.x,
                 self.imu_msg.angular_velocity.z,
             ) = (
-                imu_msgs.angular_velocity.x,
+                -imu_msgs.angular_velocity.x,
                 imu_msgs.angular_velocity.y,
                 imu_msgs.angular_velocity.z,
             )
@@ -707,6 +708,7 @@ class ControllerServer(LifecycleNode):
 
 
 def main(args=None):
+    requests.get("http://172.16.14.12/restart.html")
     rclpy.init(args=args)
     node = ControllerServer()
     rclpy.spin(node, MultiThreadedExecutor())
