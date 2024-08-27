@@ -450,8 +450,8 @@ class ControllerServer(LifecycleNode):
 
             self.ori_calc(
                 self.dt,
-                self.imu_msg.angular_velocity.y,
                 self.imu_msg.angular_velocity.x,
+                self.imu_msg.angular_velocity.y,
                 self.imu_msg.angular_velocity.z,
                 self.imu_msg.linear_acceleration.x,
                 self.imu_msg.linear_acceleration.y,
@@ -460,9 +460,9 @@ class ControllerServer(LifecycleNode):
 
             # self.ori_calc_simple(
             #     self.dt,
-            #     self.imu_msg.angular_velocity.z,
             #     self.imu_msg.angular_velocity.x,
             #     self.imu_msg.angular_velocity.y,
+            #     self.imu_msg.angular_velocity.z,
             # )
 
             if abs(self.left_wheel_pos_) >= (2.0 * pi):
@@ -501,15 +501,15 @@ class ControllerServer(LifecycleNode):
         self.yaw = yaw_gyro
 
         self.orientation_imu = self.quad_calc(
-            self.orientation_imu, self.yaw, self.roll, self.pitch
+            self.orientation_imu, self.yaw, self.pitch, -self.roll
         )
 
     def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
-        self.roll += (gyro_x - self.earthRotationZ) * dt
+        self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
         self.orientation_imu = self.quad_calc(
-            self.orientation_imu, self.roll, self.pitch, self.yaw
+            self.orientation_imu, self.yaw, self.pitch, -self.roll
         )
 
     def uros_imu_subscription(self, imu_msgs: Imu):
@@ -517,17 +517,17 @@ class ControllerServer(LifecycleNode):
         with self.timing_lock_:
             self.imu_msg.header.stamp = imu_msgs.header.stamp
             (
-                self.imu_msg.angular_velocity.y,
                 self.imu_msg.angular_velocity.x,
+                self.imu_msg.angular_velocity.y,
                 self.imu_msg.angular_velocity.z,
             ) = (
-                -imu_msgs.angular_velocity.x,
+                imu_msgs.angular_velocity.x,
                 imu_msgs.angular_velocity.y,
-                imu_msgs.angular_velocity.z,
+                (imu_msgs.angular_velocity.z - self.earthRotationZ),
             )
             (
-                self.imu_msg.linear_acceleration.y,
                 self.imu_msg.linear_acceleration.x,
+                self.imu_msg.linear_acceleration.y,
                 self.imu_msg.linear_acceleration.z,
             ) = (
                 imu_msgs.linear_acceleration.x,
@@ -642,8 +642,7 @@ class ControllerServer(LifecycleNode):
         set_odom_msg.twist.twist.angular.x = 0.0
         set_odom_msg.twist.twist.angular.y = 0.0
         set_odom_msg.twist.twist.angular.z = vth
-        self.orientation = self.quad_calc(set_orientation, th)
-        set_odom_msg.pose.pose.orientation = self.orientation
+        set_odom_msg.pose.pose.orientation = self.quad_calc(set_orientation, th)
         return set_odom_msg
 
     def set_joint_state_pkg(
@@ -659,21 +658,21 @@ class ControllerServer(LifecycleNode):
         set_joint_state.velocity = vx
         return set_joint_state
 
-    # def set_state_transform(
-    #    self,
-    #    current_time,
-    #    set_odom_trans: TransformStamped,
-    #    pos_x,
-    #    pos_y,
-    #    th,
-    # ) -> TransformStamped:
-    #    set_odom_trans.header.stamp = current_time.to_msg()
-    #    set_odom_trans.transform.translation.x = pos_x
-    #    set_odom_trans.transform.translation.y = pos_y
-    #    set_odom_trans.transform.translation.z = 0.0
-    #    self.orientation = self.quad_calc(set_orientation, th)
-    #    set_odom_trans.transform.rotation = self.orientation
-    #    return set_odom_trans
+    def set_state_transform(
+        self,
+        current_time,
+        set_odom_trans: TransformStamped,
+        pos_x,
+        pos_y,
+        th,
+        set_orientation: Quaternion,
+    ) -> TransformStamped:
+        set_odom_trans.header.stamp = current_time.to_msg()
+        set_odom_trans.transform.translation.x = pos_x
+        set_odom_trans.transform.translation.y = pos_y
+        set_odom_trans.transform.translation.z = 0.0
+        set_odom_trans.transform.rotation = self.quad_calc(set_orientation, th)
+        return set_odom_trans
 
     def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
         set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
