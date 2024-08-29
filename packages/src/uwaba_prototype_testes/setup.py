@@ -32,6 +32,7 @@ setup(
             "uros_emulator = uwaba_prototype_testes.uros_emulator:main",
             "timing_testes = uwaba_prototype_testes.timing_testes:main",
             "uwaba_teleop = uwaba_prototype_testes.uwaba_teleop:main",
+            "node_getter_testes = uwaba_prototype_testes.node_getter_testes:main",
         ],
     },
 )

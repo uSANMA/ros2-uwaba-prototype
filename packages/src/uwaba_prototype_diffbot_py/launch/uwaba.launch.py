@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import requests
 from launch import LaunchDescription
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch.actions import (
@@ -12,9 +13,17 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from os.path import join
 from ament_index_python.packages import get_package_share_directory
+import rclpy.logging
+from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import (
+    restart_microcontroller,
+)
 
 
 def generate_launch_description():
+    if not restart_microcontroller("http://172.16.14.12/restart.html"):
+        rclpy.logging.get_logger("uwaba.launch").error(
+            "Starting system in degraded mode..."
+        )
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
     )

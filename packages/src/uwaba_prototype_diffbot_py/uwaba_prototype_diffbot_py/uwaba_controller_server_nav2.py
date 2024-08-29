@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import rclpy
+import rclpy.logging
 import threading
 import time
 import requests
+import rclpy.node
 import tf_transformations
 import numpy as np
 from math import sin, cos, pi, atan2, sqrt
@@ -22,6 +24,29 @@ from uwaba_prototype_interfaces.action import ControlActions
 from geometry_msgs.msg import TwistStamped, Quaternion, Vector3, Twist
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryState
 from nav_msgs.msg import Odometry
+
+
+def restart_microcontroller(url, retries=3, timeout=1.0, retry_delay=0.5) -> bool:
+    for _ in range(retries):
+        try:
+            rclpy.logging.get_logger("URL Log").info(
+                f"Sending request to the microcontroller URL to restart..."
+            )
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+            rclpy.logging.get_logger("URL Log").info(
+                f"Request successful. Response: {response}"
+            )
+            return True
+
+        except requests.exceptions.RequestException as e:
+            rclpy.logging.get_logger("URL Log").error(f"An error occurred: {e}")
+            time.sleep(retry_delay)
+
+    rclpy.logging.get_logger("URL Log").error(
+        f"Failed to restart microcontroller after {retries} retries."
+    )
+    return False
 
 
 class ControllerServer(LifecycleNode):
@@ -47,6 +72,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
         self.starting_time_ = None
+        self.cmd_stop_flag_ = False
 
         self.declare_parameter("wheels_separation", 0.0)
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
@@ -74,8 +100,11 @@ class ControllerServer(LifecycleNode):
         self.temperature_frame__ = self.get_parameter("temperature_frame").value
         self.declare_parameter("battery_frame", "bat_frame")
         self.battery_frame__ = self.get_parameter("battery_frame").value
+
         self.declare_parameter("main_rate", 1.0)
         self.main_rate__ = self.get_parameter("main_rate").value
+        self.declare_parameter("cmd_vel_back", 1.0)
+        self.cmd_vel_back_rate__ = self.get_parameter("cmd_vel_back").value
         self.declare_parameter("uros_encoder_topic", "micro_encoders")
         self.uros_encoder_topic__ = self.get_parameter("uros_encoder_topic").value
         self.declare_parameter("uros_imu_topic", "micro_imu")
@@ -176,9 +205,9 @@ class ControllerServer(LifecycleNode):
         self.pitch = 0.0
         self.yaw = 0.0
         self.alpha = 0.88  # Complementary filter constant (0 < alpha < 1)
-        self.omegaT = 7.2921159e-5
-        self.latitude_cornelio = -23.1883438
-        self.earthRotationZ = self.omegaT * cos((self.latitude_cornelio * pi) / 180.0)
+        omegaT = 7.2921159e-5
+        latitude_cornelio = -23.1883438
+        self.earthRotationZ = omegaT * cos((latitude_cornelio * pi) / 180.0)
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -273,20 +302,25 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
 
-        self.joint_state_publish_rate = self.create_timer(
+        self.joint_state_publish_timer = self.create_timer(
             (1.0 / self.joint_state_rate__),
             self.joint_state_publish,
             callback_group=ReentrantCallbackGroup(),
         )
-        self.odom_publish_rate = self.create_timer(
+        self.odom_publish_timer = self.create_timer(
             (1.0 / self.odom_rate__),
             self.odom_publish,
             callback_group=ReentrantCallbackGroup(),
         )
         self.starting_time_ = self.get_clock().now()
-        self.main_execution_rate = self.create_timer(
+        self.main_execution_timer = self.create_timer(
             (1.0 / self.main_rate__),
             self.main_execution,
+            callback_group=ReentrantCallbackGroup(),
+        )
+        self.cmd_vel_back_timer = self.create_timer(
+            (1.0 / self.cmd_vel_back_rate__),
+            self.cmd_vel_back,
             callback_group=ReentrantCallbackGroup(),
         )
 
@@ -326,9 +360,10 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.joint_state_publish_rate.destroy()
-        self.odom_publish_rate.destroy()
-        self.main_execution_rate.destroy()
+        self.joint_state_publish_timer.destroy()
+        self.odom_publish_timer.destroy()
+        self.main_execution_timer.destroy()
+        # self.agent_checker_timer.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -343,9 +378,10 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.joint_state_publish_rate.destroy()
-        self.odom_publish_rate.destroy()
-        self.main_execution_rate.destroy()
+        self.joint_state_publish_timer.destroy()
+        self.odom_publish_timer.destroy()
+        self.main_execution_timer.destroy()
+        # self.agent_checker_timer.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -361,9 +397,10 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.joint_state_publish_rate.destroy()
-        self.odom_publish_rate.destroy()
-        self.main_execution_rate.destroy()
+        self.joint_state_publish_timer.destroy()
+        self.odom_publish_timer.destroy()
+        self.main_execution_timer.destroy()
+        # self.agent_checker_timer.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -372,7 +409,13 @@ class ControllerServer(LifecycleNode):
             self.get_logger().warn("Server not yet activated. Rejecting any goals...")
             return GoalResponse.REJECT
 
-        if goal_request.request == "stop":
+        if goal_request.request == "stop" and not self.cmd_stop_flag_:
+            self.cmd_stop_flag_ = True
+            self.get_logger().info(f"Goal '{goal_request.request}' accepted.")
+            return GoalResponse.ACCEPT
+
+        elif goal_request.request == "continue" and self.cmd_stop_flag_:
+            self.cmd_stop_flag_ = False
             self.get_logger().info(f"Goal '{goal_request.request}' accepted.")
             return GoalResponse.ACCEPT
 
@@ -403,6 +446,7 @@ class ControllerServer(LifecycleNode):
     def execute_callback(self, goal_handle: ServerGoalHandle) -> ControlActions:
         with self.goal_lock_:
             self.goal_handle_ = goal_handle
+
         request = goal_handle.request.request
         self.get_logger().info(f"Executing goal {request}")
 
@@ -411,6 +455,7 @@ class ControllerServer(LifecycleNode):
 
         if request == "stop":
             feedback.process = f"Server is being 'stop' requested."
+            self.cmd_vel_back_timer.cancel()
             self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
             self.cmd_vel_.header.frame_id = "stop action"
             cmd_zero = Vector3()
@@ -420,6 +465,15 @@ class ControllerServer(LifecycleNode):
             self.send_cmd_vel_back_.publish(self.cmd_vel_)
             goal_handle.publish_feedback(feedback)
             goal_handle.succeed()
+            result.result_msg = "The action was a success!"
+            return result
+
+        elif request == "continue":
+            feedback.process = f"Server is being 'continue' requested."
+            self.cmd_vel_back_timer.reset()
+            goal_handle.publish_feedback(feedback)
+            goal_handle.succeed()
+            result.result_msg = "The action was a success!"
             return result
 
         else:
@@ -448,7 +502,8 @@ class ControllerServer(LifecycleNode):
             self.left_wheel_pos_ += left_encoder
             self.right_wheel_pos_ += right_encoder
 
-            self.ori_calc(
+            self.ori_calc_comp_filter(
+                self.alpha,
                 self.dt,
                 self.imu_msg.angular_velocity.x,
                 self.imu_msg.angular_velocity.y,
@@ -484,11 +539,7 @@ class ControllerServer(LifecycleNode):
         self.y += delta_y
         self.th += delta_th
 
-    # This is an array filler for covariances
-    def null_cov_n(self, n=0.0, value=-1.0):
-        return np.full((n,), value)
-
-    def ori_calc(self, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
+    def ori_calc_comp_filter(self, alpha, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
         roll_gyro = self.roll + gyro_x * dt
         pitch_gyro = self.pitch + gyro_y * dt
         yaw_gyro = self.yaw + gyro_z * dt
@@ -496,8 +547,8 @@ class ControllerServer(LifecycleNode):
         roll_accel = atan2(ay, az)
         pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
 
-        self.roll = self.alpha * roll_gyro + (1 - self.alpha) * roll_accel
-        self.pitch = self.alpha * pitch_gyro + (1 - self.alpha) * pitch_accel
+        self.roll = alpha * roll_gyro + (1 - alpha) * roll_accel
+        self.pitch = alpha * pitch_gyro + (1 - alpha) * pitch_accel
         self.yaw = yaw_gyro
 
         self.orientation_imu = self.quad_calc(
@@ -508,12 +559,13 @@ class ControllerServer(LifecycleNode):
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
+        # Changed axis due to IMU CI placement onto the board
+        # (*TRY FIXING IMU FRAME TF TO BE ABLE TO CHANGE ORIENTATION WITHIN URDF*)
         self.orientation_imu = self.quad_calc(
             self.orientation_imu, self.yaw, self.pitch, -self.roll
         )
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        # Changed axis due to IMU CI placement onto the board
         with self.timing_lock_:
             self.imu_msg.header.stamp = imu_msgs.header.stamp
             (
@@ -542,7 +594,6 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
         self.cmd_vel_.twist.linear = twist_msgs.twist.linear
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
-        self.send_cmd_vel_back_.publish(self.cmd_vel_)
 
     def uros_encoder_subscription(self, motor_vels: JointState):
         with self.timing_lock_:
@@ -660,18 +711,28 @@ class ControllerServer(LifecycleNode):
 
     def set_state_transform(
         self,
+        frame_id,
+        child_frame_id,
         current_time,
         set_odom_trans: TransformStamped,
         pos_x,
         pos_y,
-        th,
+        pos_z,
+        roll,
+        pitch,
+        yaw,
         set_orientation: Quaternion,
     ) -> TransformStamped:
         set_odom_trans.header.stamp = current_time.to_msg()
+        set_odom_trans.header.frame_id = frame_id
+        set_odom_trans.child_frame_id = child_frame_id
+        # Translation and rotation in 3-dimensions of child_frame_id from header.frame_id.
         set_odom_trans.transform.translation.x = pos_x
         set_odom_trans.transform.translation.y = pos_y
-        set_odom_trans.transform.translation.z = 0.0
-        set_odom_trans.transform.rotation = self.quad_calc(set_orientation, th)
+        set_odom_trans.transform.translation.z = pos_z
+        set_odom_trans.transform.rotation = self.quad_calc(
+            set_orientation, yaw, roll, pitch
+        )
         return set_odom_trans
 
     def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
@@ -705,9 +766,15 @@ class ControllerServer(LifecycleNode):
             )
             self.odom_publisher_.publish(self.odom_msg)
 
+    def cmd_vel_back(self):
+        self.send_cmd_vel_back_.publish(self.cmd_vel_)
+
+    # This is an array filler for covariances
+    def null_cov_n(self, n=0.0, value=-1.0):
+        return np.full((n,), value)
+
 
 def main(args=None):
-    requests.get("http://172.16.14.12/restart.html")
     rclpy.init(args=args)
     node = ControllerServer()
     rclpy.spin(node, MultiThreadedExecutor())

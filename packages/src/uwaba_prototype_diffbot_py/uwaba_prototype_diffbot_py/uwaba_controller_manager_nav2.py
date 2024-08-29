@@ -15,6 +15,7 @@ from rclpy.action.client import ClientGoalHandle, GoalStatus
 from uwaba_prototype_interfaces.action import ControlActions
 from uwaba_prototype_interfaces.srv import ManagerServices
 from uwaba_prototype_interfaces.msg import ServerLog
+from uwaba_controller_server_nav2 import restart_microcontroller
 
 
 class ControllerManager(Node):
@@ -24,6 +25,10 @@ class ControllerManager(Node):
 
         self.declare_parameter("managed_node_name", self.node_name)
         node_name = self.get_parameter("managed_node_name").value
+        self.declare_parameter("micro_ros_node_name", "uWABA")
+        self.micro_ros_node_name__ = self.get_parameter("micro_ros_node_name").value
+        self.declare_parameter("agent_checker_rate", 1.0)
+        self.agent_checker_rate__ = self.get_parameter("agent_checker_rate").value
 
         self.get_logger().info(f"Server Node: {node_name}")
         service_change_state_name = f"/{node_name}/change_state"
@@ -64,10 +69,18 @@ class ControllerManager(Node):
         goal_match_cancel = re.match(
             cancel_pattern, request.goal_request, re.IGNORECASE
         )
+        continue_pattern = r"(continue)"
+        goal_match_continue = re.match(
+            continue_pattern, request.goal_request, re.IGNORECASE
+        )
 
         # Match the pattern with the request string
         if goal_match_cancel:
             action = goal_match_cancel.group(1).lower()
+            self.get_logger().info(f"Received a {action} request.")
+
+        elif goal_match_continue:
+            action = goal_match_continue.group(1).lower()
             self.get_logger().info(f"Received a {action} request.")
 
         try:
@@ -77,6 +90,14 @@ class ControllerManager(Node):
                 )
                 self.send_goal_from_service(action)
                 return response
+
+            elif action == "continue":
+                response.request_info = (
+                    f"Request to {action} successful. Sending action to the server..."
+                )
+                self.send_goal_from_service(action)
+                return response
+
             else:
                 self.get_logger().warn("This goal is not yet implemented.")
         except ValueError as e:
@@ -107,10 +128,16 @@ class ControllerManager(Node):
             self.transition_.label = "activate"
             self.change_state(self.transition_)
             self.get_logger().info("Activating OK, now state set as active.")
+            self.agent_checker_timer = self.create_timer(
+                (1.0 / self.agent_checker_rate__),
+                self.agent_checker,
+                callback_group=ReentrantCallbackGroup(),
+            )
         else:
             self.get_logger().warn(
                 "Server not in a state to be set as ACTIVE, now trying to deactivate it..."
             )
+            self.agent_checker_timer.destroy()
             self.deactivate_and_cleanup()
 
     def send_goal(self, frame_id, request):
@@ -134,6 +161,7 @@ class ControllerManager(Node):
     def goal_feedback_callback(self, feedback_msg):
         process = feedback_msg.feedback.process
         self.logging_msgs_.logging_msg = process
+        self.get_logger().info(process)
         self.server_log_publisher_.publish(self.logging_msgs_)
 
     def goal_response_callback(self, future):
@@ -174,7 +202,9 @@ class ControllerManager(Node):
             self.transition_.label = "cleanup"
             self.change_state(self.transition_)
             self.get_logger().info("Cleanup OK, now unconfigured")
+            self.agent_checker_timer.destroy()
         else:
+            self.agent_checker_timer.destroy()
             self.get_logger().warn("Server not in a state to be deactivated")
 
     def get_state_service(self):
@@ -185,6 +215,10 @@ class ControllerManager(Node):
         current_state_id = future.result().current_state.id
         return current_state_id
 
+    def agent_checker(self):
+        active_nodes = self.get_node_names()
+        if f"/{self.micro_ros_node_name__}" not in active_nodes:
+            restart_microcontroller()
 
 def main(args=None):
     rclpy.init(args=args)
