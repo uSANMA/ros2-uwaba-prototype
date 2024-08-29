@@ -26,7 +26,7 @@ def generate_launch_description():
         rclpy.logging.get_logger("uwaba.launch").error(
             "Starting system in degraded mode..."
         )
-    micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
+    # micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
     )
@@ -49,7 +49,7 @@ def generate_launch_description():
     #     output="screen",
     # )
 
-    agent_node = ExecuteProcess(cmd=[micro_ros_agent_path, "udp4", "-p", "8888"], output="screen")
+    agent_node = ExecuteProcess(cmd=["MicroXRCEAgent", "udp4", "-p", "8888"], output="screen")
 
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
