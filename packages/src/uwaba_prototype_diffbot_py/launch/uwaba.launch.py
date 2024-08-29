@@ -6,12 +6,14 @@ from launch.actions import (
     RegisterEventHandler,
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    ExecuteProcess,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from os.path import join
+from os import environ
 from ament_index_python.packages import get_package_share_directory
 import rclpy.logging
 from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import (
@@ -24,13 +26,9 @@ def generate_launch_description():
         rclpy.logging.get_logger("uwaba.launch").error(
             "Starting system in degraded mode..."
         )
+    micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
-    )
-    nav2_launch_bringup = join(
-        get_package_share_directory("uwaba_prototype_diffbot_py"),
-        "launch",
-        "bringup_launch.py",
     )
 
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
@@ -43,13 +41,15 @@ def generate_launch_description():
         [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "params.yaml"]
     )
 
-    agent_node = Node(
-        package="micro_ros_agent",
-        executable="micro_ros_agent",
-        name="micro_ros_agent",
-        arguments=["udp4", "-p", "8888", "-v4"],
-        output="screen",
-    )
+    # agent_node = Node(
+    #     package="micro_ros_agent",
+    #     executable="micro_ros_agent",
+    #     name="micro_ros_agent",
+    #     arguments=["udp4", "-p", "8888", "-v4"],
+    #     output="screen",
+    # )
+
+    agent_node = ExecuteProcess(cmd=[micro_ros_agent_path, "udp4", "-p", "8888"], output="screen")
 
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
@@ -108,9 +108,6 @@ def generate_launch_description():
                 default_value=default_rviz_config_path,
                 description="Absolute path to rviz config file",
             ),
-            # IncludeLaunchDescription(
-            #     PythonLaunchDescriptionSource(nav2_launch_bringup)
-            # ),
             agent_node,
             server_node,
             client_node,

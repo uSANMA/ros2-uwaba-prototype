@@ -15,7 +15,7 @@ from rclpy.action.client import ClientGoalHandle, GoalStatus
 from uwaba_prototype_interfaces.action import ControlActions
 from uwaba_prototype_interfaces.srv import ManagerServices
 from uwaba_prototype_interfaces.msg import ServerLog
-from uwaba_controller_server_nav2 import restart_microcontroller
+from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import restart_microcontroller
 
 
 class ControllerManager(Node):
@@ -217,8 +217,9 @@ class ControllerManager(Node):
 
     def agent_checker(self):
         active_nodes = self.get_node_names()
-        if f"/{self.micro_ros_node_name__}" not in active_nodes:
-            restart_microcontroller()
+        # if f"/{self.micro_ros_node_name__}" not in active_nodes:
+        #     restart_microcontroller()
+        self.get_logger().warn(f"Nodes found: {active_nodes}")
 
 def main(args=None):
     rclpy.init(args=args)
