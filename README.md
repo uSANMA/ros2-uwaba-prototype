@@ -1,4 +1,4 @@
-[![Static Badge](https://img.shields.io/badge/version-v0.17.3-blue)](https://github.com/uSANMA/ros2-uwaba-prototype)
+[![Static Badge](https://img.shields.io/badge/version-v0.22.0-blue)](https://github.com/uSANMA/ros2-uwaba-prototype)
 # uWABA NAVIGATION AND CONTROLLER SYSTEMS
 This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_control in Python[^1] systems. Here will be displayed every file and package related to its development.
 
@@ -23,6 +23,15 @@ sudo pip3 install transforms3d
 ```
 <source_ros2_installation>
 colcon build --packages-select uwaba_prototype_interfaces uwaba_prototype_description uwaba_prototype_diffbot_py
+```
+
+## Micro XRCE-DDS Agent Installation
+```
+<source_ros2_installation>
+git clone -b ros2 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+cd ros2-uwaba-prototype/packages/
+colcon build --packages-select microxrcedds_agent
+source install/local_setup.bash
 ```
 
 ## PROJECT NOTES
