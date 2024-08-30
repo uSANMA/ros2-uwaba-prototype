@@ -216,7 +216,7 @@ class ControllerManager(Node):
         return current_state_id
 
     def agent_checker(self):
-        active_nodes = self.get_node_names()
+        active_nodes = self.get_publishers_info_by_topic("/micro_laserscan")
         # if f"/{self.micro_ros_node_name__}" not in active_nodes:
         #     restart_microcontroller()
         self.get_logger().warn(f"Nodes found: {active_nodes}")

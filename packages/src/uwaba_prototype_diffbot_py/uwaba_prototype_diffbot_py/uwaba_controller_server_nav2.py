@@ -26,7 +26,7 @@ from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryStat
 from nav_msgs.msg import Odometry
 
 
-def restart_microcontroller(url, retries=3, timeout=1.0, retry_delay=0.5) -> bool:
+def restart_microcontroller(url, retries=5, timeout=0.2, retry_delay=20.0, sleep=10.0) -> bool:
     for _ in range(retries):
         try:
             rclpy.logging.get_logger("URL Log").info(
@@ -37,6 +37,7 @@ def restart_microcontroller(url, retries=3, timeout=1.0, retry_delay=0.5) -> boo
             rclpy.logging.get_logger("URL Log").info(
                 f"Request successful. Response: {response}"
             )
+            time.sleep(sleep)
             return True
 
         except requests.exceptions.RequestException as e:
@@ -575,7 +576,7 @@ class ControllerServer(LifecycleNode):
             ) = (
                 imu_msgs.angular_velocity.x,
                 imu_msgs.angular_velocity.y,
-                (imu_msgs.angular_velocity.z - self.earthRotationZ),
+                (imu_msgs.angular_velocity.z),
             )
             (
                 self.imu_msg.linear_acceleration.x,
@@ -613,7 +614,7 @@ class ControllerServer(LifecycleNode):
         self.scan_msg.range_min = laser_msgs.range_min
         self.scan_msg.range_max = laser_msgs.range_max
         self.scan_msg.ranges = laser_msgs.ranges
-        self.scan_msg.intensities = laser_msgs.intensities
+        self.scan_msg.intensities = 0 
         self.scan_publisher_.publish(self.scan_msg)
 
     def uros_temp_subscription(self, temp_msgs: Temperature):

@@ -49,7 +49,7 @@ def generate_launch_description():
     #     output="screen",
     # )
 
-    agent_node = ExecuteProcess(cmd=["MicroXRCEAgent", "udp4", "-p", "8888"], output="screen")
+    agent_node = ExecuteProcess(cmd=["MicroXRCEAgent", "udp4", "-p", "8888", "-v4"], output="screen")
 
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
