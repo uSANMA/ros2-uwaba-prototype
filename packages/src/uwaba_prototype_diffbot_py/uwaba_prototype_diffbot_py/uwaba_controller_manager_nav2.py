@@ -29,8 +29,8 @@ class ControllerManager(Node):
         node_name = self.get_parameter("managed_node_name").value
         self.declare_parameter("micro_ros_node_name", "uWABA")
         self.micro_ros_node_name__ = self.get_parameter("micro_ros_node_name").value
-        self.declare_parameter("agent_checker_rate", 1.0)
-        self.agent_checker_rate__ = self.get_parameter("agent_checker_rate").value
+        self.declare_parameter("microros_checker_rate", 1.0)
+        self.microros_checker_rate__ = self.get_parameter("microros_checker_rate").value
 
         self.get_logger().info(f"Server Node: {node_name}")
         service_change_state_name = f"/{node_name}/change_state"
@@ -132,7 +132,7 @@ class ControllerManager(Node):
             self.get_logger().info("Activating OK, now state set as active.")
             self.get_logger().info("\033[90;1m Node Test Timer Has Started\033[0m")
             self.microros_checker_timer = self.create_timer(
-                (1.0 / self.agent_checker_rate__),
+                (self.microros_checker_rate__),
                 self.micro_ros_checker,
                 callback_group=ReentrantCallbackGroup(),
             )

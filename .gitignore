@@ -10,4 +10,4 @@ bags/*
 
 **/*.log
 
-packages/src/Micro-XRCE-DDS-Agent
+packages/src/Micro-XRCE-DDS-Agent/
