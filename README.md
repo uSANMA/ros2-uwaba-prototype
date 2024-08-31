@@ -20,13 +20,13 @@ sudo pip3 install transforms3d
 ```
 
 ## BUILD PROJECT
-```
+```bash
 <source_ros2_installation>
 colcon build --packages-select uwaba_prototype_interfaces uwaba_prototype_description uwaba_prototype_diffbot_py
 ```
 
 ## Micro XRCE-DDS Agent Installation
-```
+```bash
 <source_ros2_installation>
 git clone -b ros2 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
 cd ros2-uwaba-prototype/packages/
