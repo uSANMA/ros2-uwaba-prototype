@@ -15,7 +15,9 @@ from rclpy.action.client import ClientGoalHandle, GoalStatus
 from uwaba_prototype_interfaces.action import ControlActions
 from uwaba_prototype_interfaces.srv import ManagerServices
 from uwaba_prototype_interfaces.msg import ServerLog
-from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import restart_microcontroller
+from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import (
+    restart_microcontroller,
+)
 
 
 class ControllerManager(Node):
@@ -216,10 +218,27 @@ class ControllerManager(Node):
         return current_state_id
 
     def agent_checker(self):
-        active_nodes = self.get_publishers_info_by_topic("/micro_laserscan")
+        active_imu_nodes = self.get_publishers_info_by_topic("/micro_imu")
+        active_scan_nodes = self.get_publishers_info_by_topic("/micro_laserscan")
+        active_encoder_nodes = self.get_publishers_info_by_topic("/micro_encoders")
         # if f"/{self.micro_ros_node_name__}" not in active_nodes:
         #     restart_microcontroller()
-        self.get_logger().warn(f"Nodes found: {active_nodes}")
+        for info in active_imu_nodes:
+            self.get_logger().warn(
+                f"\t- Nodes found: {info.node_name}\n\t- Topic Type: {info.topic_type}\n\t- QoS: {info.qos_profile}"
+            )
+        self.get_logger().warn("---")
+        for info in active_scan_nodes:
+            self.get_logger().warn(
+                f"\t- Nodes found: {info.node_name}\n\t- Topic Type: {info.topic_type}\n\t- QoS: {info.qos_profile}"
+            )
+        self.get_logger().warn("---")
+        for info in active_encoder_nodes:
+            self.get_logger().warn(
+                f"\t- Nodes found: {info.node_name}\n\t- Topic Type: {info.topic_type}\n\t- QoS: {info.qos_profile}"
+            )
+        self.get_logger().warn("---")
+
 
 def main(args=None):
     rclpy.init(args=args)

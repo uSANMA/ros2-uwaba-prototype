@@ -14,22 +14,22 @@ amcl:
     global_frame_id: "map"
     lambda_short: 0.1
     laser_likelihood_max_dist: 2.0
-    laser_max_range: 12.0
+    laser_max_range: 6.0
     laser_min_range: 0.15
     laser_model_type: "likelihood_field"
     max_beams: 60
-    max_particles: 8000
+    max_particles: 2000
     min_particles: 500
-    odom_frame_id: "odom"
+    odom_frame_id: "odometry/filtered" # Maybe change to "odom"
     pf_err: 0.05
     pf_z: 0.99
-    recovery_alpha_fast: 0.0
-    recovery_alpha_slow: 0.0
+    recovery_alpha_fast: 0.1
+    recovery_alpha_slow: 0.001
     resample_interval: 1
     robot_model_type: "nav2_amcl::DifferentialMotionModel"
     save_pose_rate: 0.5
     sigma_hit: 0.2
-    tf_broadcast: true
+    tf_broadcast: true # Maybe change to "false" to prevent amcl from publishing the transform between the global frame and the odometry frame.
     transform_tolerance: 1.0
     update_min_a: 0.2
     update_min_d: 0.25
@@ -111,7 +111,7 @@ bt_navigator_navigate_to_pose_rclcpp_node:
 controller_server:
   ros__parameters:
     use_sim_time: False
-    controller_frequency: 20.0
+    controller_frequency: 30.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
@@ -167,7 +167,16 @@ controller_server:
       trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: True
       stateful: True
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      critics:
+        [
+          "RotateToGoal",
+          "Oscillation",
+          "BaseObstacle",
+          "GoalAlign",
+          "PathAlign",
+          "PathDist",
+          "GoalDist",
+        ]
       BaseObstacle.scale: 0.02
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
@@ -298,7 +307,8 @@ behavior_server:
     costmap_topic: local_costmap/costmap_raw
     footprint_topic: local_costmap/published_footprint
     cycle_frequency: 10.0
-    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    behavior_plugins:
+      ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
     spin:
       plugin: "nav2_behaviors/Spin"
     backup:
