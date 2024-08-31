@@ -65,6 +65,6 @@ ekf_filter_node:
                       true, true, true, # vroll, vpitch, vyaw
                       true, true, true] # ax, ay, az
 
+        imu0_queue_size: 2
         imu0_remove_gravitational_acceleration: true
-        imu0_queue_size: 5
         imu0_relative: false
