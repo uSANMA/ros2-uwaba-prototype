@@ -329,14 +329,14 @@ class ControllerServer(LifecycleNode):
 
         self.get_logger().info(
             f"\n\033[1;32;40mActivated successfully with params:\033[0m\
-                \n-> Base Length: \033[1;34;40m{self.base_length__}\033[0m [m]\
-                    \n-> Base Width: \033[1;34;40m{self.base_width__}\033[0m [m]\
-                        \n-> Base Height: \033[1;34;40m{self.base_height__}\033[0m [m]\
-                \n-> Wheel Separation: \033[1;34;40m{self.wheels_separation__}\033[0m [m]\
-                    \n-> Wheel Radius: \033[1;34;40m{self.wheel_radius__}\033[0m [m]\
-                        \n-> Main Rate: \033[1;34;40m{self.main_rate__}\033[0m [Hz]\
-                                \n-> Odom Rate: \033[1;34;40m{self.odom_rate__}\033[0m [Hz]\
-                                    \n-> Joint States Rate: \033[1;34;40m{self.joint_state_rate__}\033[0m [Hz]"
+               \n-> Base Length: \033[1;34;40m{self.base_length__}\033[0m [m]\
+               \n-> Base Width: \033[1;34;40m{self.base_width__}\033[0m [m]\
+               \n-> Base Height: \033[1;34;40m{self.base_height__}\033[0m [m]\
+               \n-> Wheel Separation: \033[1;34;40m{self.wheels_separation__}\033[0m [m]\
+               \n-> Wheel Radius: \033[1;34;40m{self.wheel_radius__}\033[0m [m]\
+               \n-> Main Rate: \033[1;34;40m{self.main_rate__}\033[0m [Hz]\
+               \n-> Odom Rate: \033[1;34;40m{self.odom_rate__}\033[0m [Hz]\
+               \n-> Joint States Rate: \033[1;34;40m{self.joint_state_rate__}\033[0m [Hz]"
         )
 
         self.server_activated_ = True

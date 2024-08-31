@@ -22,10 +22,10 @@ from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import (
 
 
 def generate_launch_description():
-    # if not restart_microcontroller("http://172.16.14.12/restart.html"):
-    #     rclpy.logging.get_logger("uwaba.launch").error(
-    #         "Starting system in degraded mode..."
-    #     )
+    if not restart_microcontroller("http://172.16.14.12/restart.html"):
+        rclpy.logging.get_logger("uwaba.launch").error(
+            "Starting system in degraded mode..."
+        )
     # micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"

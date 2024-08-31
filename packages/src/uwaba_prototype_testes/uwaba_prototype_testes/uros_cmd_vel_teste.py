@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile
 from geometry_msgs.msg import TwistStamped
 
 
@@ -11,11 +12,12 @@ class UrosCmdVelTeste(Node):
         self.declare_parameter("set_az", 0.2)
         self.declare_parameter("set_frame_id", "uwaba_prototype")
         self.declare_parameter("set_freq", 30)
+        self.custom_qos_ = QoSProfile(depth=100, reliability=2, durability=2, liveliness=1, history=2)
         self.x_value_ = self.get_parameter("set_x").value
         self.az_value_ = self.get_parameter("set_az").value
         self.frame_id_value_ = self.get_parameter("set_frame_id").value
         self.timer_freq_ = self.get_parameter("set_freq").value
-        self.data_publisher_ = self.create_publisher(TwistStamped, "cmd_vel", 10)
+        self.data_publisher_ = self.create_publisher(TwistStamped, "cmd_vel", self.custom_qos_)
         self.timer_ = self.create_timer(1.0 / self.timer_freq_, self.publish_cmd)
 
     def publish_cmd(self):
