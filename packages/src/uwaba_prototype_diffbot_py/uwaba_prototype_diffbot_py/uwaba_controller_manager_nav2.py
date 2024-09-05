@@ -29,7 +29,7 @@ class ControllerManager(Node):
         node_name = self.get_parameter("managed_node_name").value
         self.declare_parameter("micro_ros_node_name", "uWABA")
         self.micro_ros_node_name__ = self.get_parameter("micro_ros_node_name").value
-        self.declare_parameter("microros_checker_rate", 1.0)
+        self.declare_parameter("microros_checker_rate", 10.0)
         self.microros_checker_rate__ = self.get_parameter("microros_checker_rate").value
 
         self.get_logger().info(f"Server Node: {node_name}")

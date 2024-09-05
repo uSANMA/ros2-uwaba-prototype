@@ -30,4 +30,4 @@ uwaba_controller_manager_node:
   ros__parameters:
     managed_node_name: "uwaba_controller_server_node"
     micro_ros_node_name: "uWABA"
-    microros_checker_rate: 0.25 # [s]
+    microros_checker_rate: 20.0 # [s]

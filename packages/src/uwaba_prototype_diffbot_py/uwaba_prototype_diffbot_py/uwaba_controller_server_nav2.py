@@ -27,7 +27,7 @@ from nav_msgs.msg import Odometry
 
 
 def restart_microcontroller(
-    url, retries=5, timeout=0.2, retry_delay=20.0, sleep=10.0
+    url, retries=5, timeout=0.2, retry_delay=20.0, sleep=3.0
 ) -> bool:
     for _ in range(retries):
         try:
@@ -616,7 +616,7 @@ class ControllerServer(LifecycleNode):
         self.scan_msg.range_min = laser_msgs.range_min
         self.scan_msg.range_max = laser_msgs.range_max
         self.scan_msg.ranges = laser_msgs.ranges
-        self.scan_msg.intensities = 0
+        self.scan_msg.intensities = laser_msgs.intensities
         self.scan_publisher_.publish(self.scan_msg)
 
     def uros_temp_subscription(self, temp_msgs: Temperature):
