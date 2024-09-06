@@ -24,10 +24,11 @@ from uwaba_prototype_interfaces.action import ControlActions
 from geometry_msgs.msg import TwistStamped, Quaternion, Vector3, Twist
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryState
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float32MultiArray, Float64MultiArray
 
 
 def restart_microcontroller(
-    url, retries=5, timeout=0.2, retry_delay=20.0, sleep=3.0
+    url, retries=5, timeout=0.2, retry_delay=10.0, sleep=3.0
 ) -> bool:
     for _ in range(retries):
         try:
@@ -200,11 +201,12 @@ class ControllerServer(LifecycleNode):
         self.vy = 0.0
         self.vz = 0.0
         self.vth = 0.0
-        self.dt = 0.0
         self.total_elapsed_time = 0.0
         self.left_wheel_pos_ = 0.0
         self.right_wheel_pos_ = 0.0
         self.gear_ratio_ = 18.8
+        self.left_encoder = 0.0
+        self.right_encoder = 0.0
         self.null_ori = np.full((9,), -1)
         self.roll = 0.0
         self.pitch = 0.0
@@ -215,7 +217,8 @@ class ControllerServer(LifecycleNode):
         self.earthRotationZ = omegaT * cos((latitude_cornelio * pi) / 180.0)
 
         self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
-        self.odom_trans = TransformStamped()
+        self.odom_tf_left = TransformStamped()
+        self.odom_tf_right = TransformStamped()
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -224,8 +227,7 @@ class ControllerServer(LifecycleNode):
 
         self.linear_acceleration = Vector3()
 
-        # self.odom_trans = TransformStamped()
-        # self.state_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        self.encoder_teste = JointState()
 
         self.cmd_vel_ = TwistStamped()
         self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
@@ -233,13 +235,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.linear = Twist().linear
         self.cmd_vel_.twist.angular = Twist().angular
 
-        self.motor_velocity_ = JointState()
-        self.motor_velocity_.header.stamp = self.get_clock().now().to_msg()
-        # self.motor_velocity_.header.frame_id = "motor vels"
-        # self.motor_velocity_.name = ["", ""]
-        # self.motor_velocity_.velocity = []
-        self.R_encoder_m_s = 0.0
-        self.L_encoder_m_s = 0.0
+        self.encoder_readings_ = Float64MultiArray()
 
         self.joint_state = JointState()
         self.joint_state.header.frame_id = "wheels_states"
@@ -263,6 +259,8 @@ class ControllerServer(LifecycleNode):
 
         self.bat_msg = BatteryState()
         self.bat_msg.header.frame_id = self.battery_frame__
+
+        self.debug_counter = 0  ###############################################################################
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -484,31 +482,34 @@ class ControllerServer(LifecycleNode):
 
     def main_execution(self):
         self.current_time = self.get_clock().now()
-        self.dt = self.current_time - self.starting_time_
-        self.dt = self.dt.to_msg().sec + (self.dt.to_msg().nanosec / 1e9)
+        dt = self.current_time - self.starting_time_
+        self.dt = float(dt.to_msg().sec) + (float(dt.to_msg().nanosec) / 1e9)
 
-        if self.motor_velocity_.velocity:
-            right_encoder, left_encoder = self.motor_velocity_.velocity
+        # if self.encoder_readings_.data:
+        #     self.right_encoder, self.left_encoder = self.encoder_readings_.data
 
-        self.vx = (right_encoder + left_encoder) / 2.0
-        self.vth = (right_encoder - left_encoder) / self.wheels_separation__
+        if self.encoder_teste.velocity:
+            self.right_encoder, self.left_encoder = self.encoder_teste.velocity
+
+        self.vx = (self.right_encoder + self.left_encoder) / 2.0
+        self.vth = (self.right_encoder - self.left_encoder) / self.wheels_separation__
 
         self.pos_calc(self.dt, self.vx, self.vth)
         self.quad_calc(self.orientation, self.th)
 
-        self.left_wheel_pos_ += left_encoder
-        self.right_wheel_pos_ += right_encoder
+        self.left_wheel_pos_ += self.left_encoder
+        self.right_wheel_pos_ += self.right_encoder
 
-        self.ori_calc_comp_filter(
-            self.alpha,
-            self.dt,
-            self.imu_msg.angular_velocity.x,
-            self.imu_msg.angular_velocity.y,
-            self.imu_msg.angular_velocity.z,
-            self.imu_msg.linear_acceleration.x,
-            self.imu_msg.linear_acceleration.y,
-            self.imu_msg.linear_acceleration.z,
-        )
+        # self.ori_calc_comp_filter(
+        #     self.alpha,
+        #     self.dt,
+        #     self.imu_msg.angular_velocity.x,
+        #     self.imu_msg.angular_velocity.y,
+        #     self.imu_msg.angular_velocity.z,
+        #     self.imu_msg.linear_acceleration.x,
+        #     self.imu_msg.linear_acceleration.y,
+        #     self.imu_msg.linear_acceleration.z,
+        # )
 
         # self.ori_calc_simple(
         #     self.dt,
@@ -521,8 +522,6 @@ class ControllerServer(LifecycleNode):
             self.left_wheel_pos_ = 0.0
         if abs(self.right_wheel_pos_) >= (2.0 * pi):
             self.right_wheel_pos_ = 0.0
-
-        # self.set_state_transform("base_link", "Left_wheel_sprocket_link", self.current_time, self.odom_trans, self.x, self.y, self.z, 0.0, 0.0, )
 
         self.total_elapsed_time += self.dt
         self.starting_time_ = self.current_time
@@ -588,11 +587,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
 
     def uros_encoder_subscription(self, motor_vels: JointState):
-        self.motor_velocity_.header.stamp = motor_vels.header.stamp
-        self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
-        self.motor_velocity_.name = motor_vels.name
-        if motor_vels.velocity:
-            self.motor_velocity_.velocity = motor_vels.velocity
+        self.encoder_teste.velocity = motor_vels.velocity
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
@@ -738,7 +733,7 @@ class ControllerServer(LifecycleNode):
             self.joint_state,
             self.left_wheel_pos_,
             self.right_wheel_pos_,
-            self.motor_velocity_.velocity,
+            self.encoder_teste.velocity,
         )
         self.joint_state_publisher_.publish(self.joint_state)
 
