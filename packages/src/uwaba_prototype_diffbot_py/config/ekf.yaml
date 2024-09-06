@@ -69,9 +69,17 @@ ekf_filter_node:
         imu0_config: [false, false, false, # x, y, z
                       false,  false,  false, # roll, pitch, yaw
                       false, false, false, # vx, vy, vz
-                      false, false, false, # vroll, vpitch, vyaw
-                      false, false, false] # ax, ay, az
+                      true, true, true, # vroll, vpitch, vyaw
+                      true, true, true] # ax, ay, az
 
-        #imu0_queue_size: 5
+        imu0_queue_size: 10
         imu0_remove_gravitational_acceleration: true
-        imu0_relative: true
+        imu0_noise_covariance: [0.05, 0,    0,    0,    0,    0,    0,    0,    0,    # x pos
+                                0,    0.05, 0,    0,    0,    0,    0,    0,    0,    # y pos
+                                0,    0,    0.05, 0,    0,    0,    0,    0,    0,    # z pos
+                                0,    0,    0,    0.1,  0,    0,    0,    0,    0,    # x velocity
+                                0,    0,    0,    0,    0.1,  0,    0,    0,    0,    # y velocity
+                                0,    0,    0,    0,    0,    0.1,  0,    0,    0,    # z velocity
+                                0,    0,    0,    0,    0,    0,    0.05, 0,    0,    # x angular velocity
+                                0,    0,    0,    0,    0,    0,    0,    0.05, 0,    # y angular velocity
+                                0,    0,    0,    0,    0,    0,    0,    0,    0.05] # z angular velocity

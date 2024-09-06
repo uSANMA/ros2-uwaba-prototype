@@ -565,17 +565,17 @@ class ControllerServer(LifecycleNode):
             self.imu_msg.angular_velocity.y,
             self.imu_msg.angular_velocity.z,
         ) = (
+            -imu_msgs.angular_velocity.y,
             imu_msgs.angular_velocity.x,
-            imu_msgs.angular_velocity.y,
             imu_msgs.angular_velocity.z,
         )
         (
-            self.imu_msg.linear_acceleration.x,
             self.imu_msg.linear_acceleration.y,
+            self.imu_msg.linear_acceleration.x,
             self.imu_msg.linear_acceleration.z,
         ) = (
+            -imu_msgs.linear_acceleration.y,
             imu_msgs.linear_acceleration.x,
-            imu_msgs.linear_acceleration.y,
             imu_msgs.linear_acceleration.z,
         )
         self.imu_msg.orientation = self.orientation_imu

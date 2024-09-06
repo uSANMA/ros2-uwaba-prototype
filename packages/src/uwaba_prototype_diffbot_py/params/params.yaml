@@ -19,7 +19,7 @@ uwaba_controller_server_node:
     uros_lidar_topic: "micro_laserscan"
     uros_battery_topic: "micro_batterypack"
     odom_topic: "odom"
-    joint_states_topic: "new_joint_states"
+    joint_states_topic: "joint_states"
     cmd_vel_topic: "cmd_vel"
     imu_topic: "imu"
     scan_topic: "scan"
