@@ -570,8 +570,8 @@ class ControllerServer(LifecycleNode):
             imu_msgs.angular_velocity.z,
         )
         (
-            self.imu_msg.linear_acceleration.y,
             self.imu_msg.linear_acceleration.x,
+            self.imu_msg.linear_acceleration.y,
             self.imu_msg.linear_acceleration.z,
         ) = (
             -imu_msgs.linear_acceleration.y,
