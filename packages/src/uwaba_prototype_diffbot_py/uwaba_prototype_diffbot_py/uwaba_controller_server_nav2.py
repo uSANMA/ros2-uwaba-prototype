@@ -219,6 +219,9 @@ class ControllerServer(LifecycleNode):
 
         self.linear_acceleration = Vector3()
 
+        # self.odom_trans = TransformStamped()
+        # self.state_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+
         self.cmd_vel_ = TwistStamped()
         self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
         self.cmd_vel_.header.frame_id = ""
@@ -227,9 +230,9 @@ class ControllerServer(LifecycleNode):
 
         self.motor_velocity_ = JointState()
         self.motor_velocity_.header.stamp = self.get_clock().now().to_msg()
-        self.motor_velocity_.header.frame_id = "motor vels"
-        self.motor_velocity_.name = ["", ""]
-        self.motor_velocity_.velocity = []
+        # self.motor_velocity_.header.frame_id = "motor vels"
+        # self.motor_velocity_.name = ["", ""]
+        # self.motor_velocity_.velocity = []
         self.R_encoder_m_s = 0.0
         self.L_encoder_m_s = 0.0
 
@@ -325,18 +328,6 @@ class ControllerServer(LifecycleNode):
             (1.0 / self.cmd_vel_back_rate__),
             self.cmd_vel_back,
             callback_group=ReentrantCallbackGroup(),
-        )
-
-        self.get_logger().info(
-            f"\n\033[1;32;40mActivated successfully with params:\033[0m\
-               \n-> Base Length: \033[1;34;40m{self.base_length__}\033[0m [m]\
-               \n-> Base Width: \033[1;34;40m{self.base_width__}\033[0m [m]\
-               \n-> Base Height: \033[1;34;40m{self.base_height__}\033[0m [m]\
-               \n-> Wheel Separation: \033[1;34;40m{self.wheels_separation__}\033[0m [m]\
-               \n-> Wheel Radius: \033[1;34;40m{self.wheel_radius__}\033[0m [m]\
-               \n-> Main Rate: \033[1;34;40m{self.main_rate__}\033[0m [Hz]\
-               \n-> Odom Rate: \033[1;34;40m{self.odom_rate__}\033[0m [Hz]\
-               \n-> Joint States Rate: \033[1;34;40m{self.joint_state_rate__}\033[0m [Hz]"
         )
 
         self.server_activated_ = True
@@ -487,56 +478,57 @@ class ControllerServer(LifecycleNode):
             return result
 
     def main_execution(self):
-        with self.timing_lock_:
-            self.current_time = self.get_clock().now()
-            self.dt = self.current_time - self.starting_time_
-            self.dt = self.dt.to_msg().sec + (self.dt.to_msg().nanosec / 1e9)
+        self.current_time = self.get_clock().now()
+        self.dt = self.current_time - self.starting_time_
+        self.dt = self.dt.to_msg().sec + (self.dt.to_msg().nanosec / 1e9)
 
-            if self.motor_velocity_.velocity:
-                right_encoder, left_encoder = self.motor_velocity_.velocity
-            else:
-                right_encoder, left_encoder = [0.0, 0.0]
+        if self.motor_velocity_.velocity:
+            right_encoder, left_encoder = self.motor_velocity_.velocity
+        else:
+            right_encoder, left_encoder = [0.0, 0.0]
 
-            self.vx = (right_encoder + left_encoder) / 2.0
-            self.vth = (right_encoder - left_encoder) / self.wheels_separation__
+        self.vx = (right_encoder + left_encoder) / 2.0
+        self.vth = (right_encoder - left_encoder) / self.wheels_separation__
 
-            self.pos_calc(self.dt, self.vx, self.vth)
+        self.pos_calc(self.dt, self.th, self.vx, self.vth)
+        
+        self.orientation = self.quad_calc(self.orientation, self.th)
+    
+        self.left_wheel_pos_ += left_encoder
+        self.right_wheel_pos_ += right_encoder
 
-            self.left_wheel_pos_ += left_encoder
-            self.right_wheel_pos_ += right_encoder
+        self.ori_calc_comp_filter(
+            self.alpha,
+            self.dt,
+            self.imu_msg.angular_velocity.x,
+            self.imu_msg.angular_velocity.y,
+            self.imu_msg.angular_velocity.z,
+            self.imu_msg.linear_acceleration.x,
+            self.imu_msg.linear_acceleration.y,
+            self.imu_msg.linear_acceleration.z,
+        )
 
-            self.ori_calc_comp_filter(
-                self.alpha,
-                self.dt,
-                self.imu_msg.angular_velocity.x,
-                self.imu_msg.angular_velocity.y,
-                self.imu_msg.angular_velocity.z,
-                self.imu_msg.linear_acceleration.x,
-                self.imu_msg.linear_acceleration.y,
-                self.imu_msg.linear_acceleration.z,
-            )
+        # self.ori_calc_simple(
+        #     self.dt,
+        #     self.imu_msg.angular_velocity.x,
+        #     self.imu_msg.angular_velocity.y,
+        #     self.imu_msg.angular_velocity.z,
+        # )
 
-            # self.ori_calc_simple(
-            #     self.dt,
-            #     self.imu_msg.angular_velocity.x,
-            #     self.imu_msg.angular_velocity.y,
-            #     self.imu_msg.angular_velocity.z,
-            # )
+        if abs(self.left_wheel_pos_) >= (2.0 * pi):
+            self.left_wheel_pos_ = 0.0
+        if abs(self.right_wheel_pos_) >= (2.0 * pi):
+            self.right_wheel_pos_ = 0.0
 
-            if abs(self.left_wheel_pos_) >= (2.0 * pi):
-                self.left_wheel_pos_ = 0.0
-            if abs(self.right_wheel_pos_) >= (2.0 * pi):
-                self.right_wheel_pos_ = 0.0
+        self.total_elapsed_time += self.dt
+        self.starting_time_ = self.current_time
 
-            self.total_elapsed_time += self.dt
-            self.starting_time_ = self.current_time
-
-    def pos_calc(self, dt, vx, vth, vy=0.0):
+    def pos_calc(self, dt, th, vx, vth, vy=0.0):
         # For differential bots the lateral velocity is zero, so vy = 0.0
         ## This is a transformation matrix so we can exchange info between fixed and moving references
-        delta_x = float((vx * cos(self.th) - vy * sin(self.th)) * dt)
-        delta_y = float((vx * sin(self.th) + vy * cos(self.th)) * dt)
-        delta_th = float(vth * dt)
+        delta_x = vx * cos(th) * dt
+        delta_y = vx * sin(th) * dt
+        delta_th = vth * dt
 
         self.x += delta_x
         self.y += delta_y
@@ -562,35 +554,32 @@ class ControllerServer(LifecycleNode):
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
-        # Changed axis due to IMU CI placement onto the board
-        # (*TRY FIXING IMU FRAME TF TO BE ABLE TO CHANGE ORIENTATION WITHIN URDF*)
         self.orientation_imu = self.quad_calc(
-            self.orientation_imu, self.yaw, self.pitch, -self.roll
+            self.orientation_imu, self.yaw, self.roll, self.pitch
         )
 
     def uros_imu_subscription(self, imu_msgs: Imu):
-        with self.timing_lock_:
-            self.imu_msg.header.stamp = imu_msgs.header.stamp
-            (
-                self.imu_msg.angular_velocity.x,
-                self.imu_msg.angular_velocity.y,
-                self.imu_msg.angular_velocity.z,
-            ) = (
-                imu_msgs.angular_velocity.x,
-                imu_msgs.angular_velocity.y,
-                (imu_msgs.angular_velocity.z),
-            )
-            (
-                self.imu_msg.linear_acceleration.x,
-                self.imu_msg.linear_acceleration.y,
-                self.imu_msg.linear_acceleration.z,
-            ) = (
-                imu_msgs.linear_acceleration.x,
-                imu_msgs.linear_acceleration.y,
-                imu_msgs.linear_acceleration.z,
-            )
-            self.imu_msg.orientation = self.orientation_imu
-            self.imu_publisher_.publish(self.imu_msg)
+        self.imu_msg.header.stamp = imu_msgs.header.stamp
+        (
+            self.imu_msg.angular_velocity.x,
+            self.imu_msg.angular_velocity.y,
+            self.imu_msg.angular_velocity.z,
+        ) = (
+            imu_msgs.angular_velocity.x,
+            imu_msgs.angular_velocity.y,
+            imu_msgs.angular_velocity.z,
+        )
+        (
+            self.imu_msg.linear_acceleration.x,
+            self.imu_msg.linear_acceleration.y,
+            self.imu_msg.linear_acceleration.z,
+        ) = (
+            imu_msgs.linear_acceleration.x,
+            imu_msgs.linear_acceleration.y,
+            imu_msgs.linear_acceleration.z,
+        )
+        self.imu_msg.orientation = self.orientation_imu
+        self.imu_publisher_.publish(self.imu_msg)
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
@@ -599,12 +588,11 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
 
     def uros_encoder_subscription(self, motor_vels: JointState):
-        with self.timing_lock_:
-            self.motor_velocity_.header.stamp = motor_vels.header.stamp
-            self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
-            self.motor_velocity_.name = motor_vels.name
-            if motor_vels.velocity:
-                self.motor_velocity_.velocity = motor_vels.velocity
+        self.motor_velocity_.header.stamp = motor_vels.header.stamp
+        self.motor_velocity_.header.frame_id = motor_vels.header.frame_id
+        self.motor_velocity_.name = motor_vels.name
+        if motor_vels.velocity:
+            self.motor_velocity_.velocity = motor_vels.velocity
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = laser_msgs.header.stamp
@@ -745,29 +733,27 @@ class ControllerServer(LifecycleNode):
         return set_orientation
 
     def joint_state_publish(self):
-        with self.timing_lock_:
-            self.joint_state = self.set_joint_state_pkg(
-                self.current_time,
-                self.joint_state,
-                self.left_wheel_pos_,
-                self.right_wheel_pos_,
-                self.motor_velocity_.velocity,
-            )
-            self.joint_state_publisher_.publish(self.joint_state)
+        self.joint_state = self.set_joint_state_pkg(
+            self.current_time,
+            self.joint_state,
+            self.left_wheel_pos_,
+            self.right_wheel_pos_,
+            self.motor_velocity_.velocity,
+        )
+        self.joint_state_publisher_.publish(self.joint_state)
 
     def odom_publish(self):
-        with self.timing_lock_:
-            self.odom_msg = self.set_odom_pkg(
-                self.current_time,
-                self.odom_msg,
-                self.x,
-                self.y,
-                self.vx,
-                self.vth,
-                self.th,
-                self.orientation,
-            )
-            self.odom_publisher_.publish(self.odom_msg)
+        self.odom_msg = self.set_odom_pkg(
+            self.current_time,
+            self.odom_msg,
+            self.x,
+            self.y,
+            self.vx,
+            self.vth,
+            self.th,
+            self.orientation,
+        )
+        self.odom_publisher_.publish(self.odom_msg)
 
     def cmd_vel_back(self):
         self.send_cmd_vel_back_.publish(self.cmd_vel_)

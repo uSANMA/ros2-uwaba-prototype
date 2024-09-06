@@ -49,7 +49,7 @@ ekf_filter_node:
 # do not provide some of the state variables estimated by the filter. For example, a TwistWithCovarianceStamped message
 # has no pose information, so the first six values would be meaningless in that case. Each vector defaults to all false
 # if unspecified, effectively making this parameter required for each sensor.
-        odom0_config: [false,  false,  false, # x, y, z
+        odom0_config: [true,  true,  false, # x, y, z
                        false, false, false, # roll, pitch, yaw
                        true, false, false, # vx, vy, vz
                        false, false, true, # vroll, vpitch, vyaw
@@ -59,7 +59,7 @@ ekf_filter_node:
 # for all future measurements. While you can achieve the same effect with the differential paremeter, the key
 # difference is that the relative parameter doesn't cause the measurement to be converted to a velocity before
 # integrating it. If you simply want your measurements to start at 0 for a given sensor, set this to true.
-        odom0_relative: true
+        #odom0_relative: true
 
 # If you have high-frequency data or are running with a low frequency parameter value, then you may want to increase
 # the size of the subscription queue so that more measurements are fused.
@@ -67,9 +67,9 @@ ekf_filter_node:
 
         imu0: /imu
         imu0_config: [false, false, false, # x, y, z
-                      true,  true,  true, # roll, pitch, yaw
+                      false,  false,  false, # roll, pitch, yaw
                       false, false, false, # vx, vy, vz
-                      true, true, true, # vroll, vpitch, vyaw
+                      false, false, false, # vroll, vpitch, vyaw
                       false, false, false] # ax, ay, az
 
         #imu0_queue_size: 5

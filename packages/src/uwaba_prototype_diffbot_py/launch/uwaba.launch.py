@@ -22,7 +22,7 @@ from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import (
 
 
 def generate_launch_description():
-    if not restart_microcontroller("http://172.16.14.12/restart.html"):
+    if not restart_microcontroller("http://172.16.14.13/restart.html"):
         rclpy.logging.get_logger("uwaba.launch").error(
             "Starting system in degraded mode..."
         )
@@ -111,7 +111,7 @@ def generate_launch_description():
             agent_node,
             server_node,
             client_node,
-            joint_state_publisher_node,
+            #joint_state_publisher_node,
             robot_state_publisher_node,
             robot_localization_node,
             rviz_node,
