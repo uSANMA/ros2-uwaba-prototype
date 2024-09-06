@@ -194,9 +194,11 @@ class ControllerServer(LifecycleNode):
         # Odometry starting point
         self.x = 0.0
         self.y = 0.0
+        self.z = 0.0
         self.th = 0.0
         self.vx = 0.0
         self.vy = 0.0
+        self.vz = 0.0
         self.vth = 0.0
         self.dt = 0.0
         self.total_elapsed_time = 0.0
@@ -211,6 +213,9 @@ class ControllerServer(LifecycleNode):
         omegaT = 7.2921159e-5
         latitude_cornelio = -23.1883438
         self.earthRotationZ = omegaT * cos((latitude_cornelio * pi) / 180.0)
+
+        self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        self.odom_trans = TransformStamped()
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -484,16 +489,13 @@ class ControllerServer(LifecycleNode):
 
         if self.motor_velocity_.velocity:
             right_encoder, left_encoder = self.motor_velocity_.velocity
-        else:
-            right_encoder, left_encoder = [0.0, 0.0]
 
         self.vx = (right_encoder + left_encoder) / 2.0
         self.vth = (right_encoder - left_encoder) / self.wheels_separation__
 
-        self.pos_calc(self.dt, self.th, self.vx, self.vth)
-        
-        self.orientation = self.quad_calc(self.orientation, self.th)
-    
+        self.pos_calc(self.dt, self.vx, self.vth)
+        self.quad_calc(self.orientation, self.th)
+
         self.left_wheel_pos_ += left_encoder
         self.right_wheel_pos_ += right_encoder
 
@@ -520,14 +522,16 @@ class ControllerServer(LifecycleNode):
         if abs(self.right_wheel_pos_) >= (2.0 * pi):
             self.right_wheel_pos_ = 0.0
 
+        # self.set_state_transform("base_link", "Left_wheel_sprocket_link", self.current_time, self.odom_trans, self.x, self.y, self.z, 0.0, 0.0, )
+
         self.total_elapsed_time += self.dt
         self.starting_time_ = self.current_time
 
-    def pos_calc(self, dt, th, vx, vth, vy=0.0):
+    def pos_calc(self, dt, vx, vth, vy=0.0):
         # For differential bots the lateral velocity is zero, so vy = 0.0
         ## This is a transformation matrix so we can exchange info between fixed and moving references
-        delta_x = vx * cos(th) * dt
-        delta_y = vx * sin(th) * dt
+        delta_x = vx * cos(self.th) * dt
+        delta_y = vx * sin(self.th) * dt
         delta_th = vth * dt
 
         self.x += delta_x
@@ -539,24 +543,20 @@ class ControllerServer(LifecycleNode):
         pitch_gyro = self.pitch + gyro_y * dt
         yaw_gyro = self.yaw + gyro_z * dt
 
-        roll_accel = atan2(ay, az)
+        roll_accel = atan2(ay, sqrt(az**2 + az**2))
         pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
 
         self.roll = alpha * roll_gyro + (1 - alpha) * roll_accel
         self.pitch = alpha * pitch_gyro + (1 - alpha) * pitch_accel
         self.yaw = yaw_gyro
 
-        self.orientation_imu = self.quad_calc(
-            self.orientation_imu, self.yaw, self.roll, self.pitch
-        )
+        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
 
     def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
-        self.orientation_imu = self.quad_calc(
-            self.orientation_imu, self.yaw, self.roll, self.pitch
-        )
+        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         self.imu_msg.header.stamp = imu_msgs.header.stamp
@@ -733,7 +733,7 @@ class ControllerServer(LifecycleNode):
         return set_orientation
 
     def joint_state_publish(self):
-        self.joint_state = self.set_joint_state_pkg(
+        self.set_joint_state_pkg(
             self.current_time,
             self.joint_state,
             self.left_wheel_pos_,
@@ -743,7 +743,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_publisher_.publish(self.joint_state)
 
     def odom_publish(self):
-        self.odom_msg = self.set_odom_pkg(
+        self.set_odom_pkg(
             self.current_time,
             self.odom_msg,
             self.x,
