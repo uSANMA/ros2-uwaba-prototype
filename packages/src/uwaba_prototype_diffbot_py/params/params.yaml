@@ -5,10 +5,11 @@ uwaba_controller_server_node:
     base_length: 0.2480000407
     base_width: 0.1058000177
     base_height: 0.0387500003
-    main_rate: 1000.0
     cmd_vel_back: 30.0
     odom_rate: 30.0
     joint_state_rate: 30.0
+    main_frame: "base_footprint"
+    odom_frame: "odom"
     lidar_frame: "laser_frame"
     imu_frame: "imu_frame"
     temperature_frame: "temp_frame"
