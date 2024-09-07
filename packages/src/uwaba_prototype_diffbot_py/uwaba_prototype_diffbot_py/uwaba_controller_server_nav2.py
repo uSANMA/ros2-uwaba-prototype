@@ -201,6 +201,7 @@ class ControllerServer(LifecycleNode):
         self.vy = 0.0
         self.vz = 0.0
         self.vth = 0.0
+        self.dt = 0.0
         self.total_elapsed_time = 0.0
         self.left_wheel_pos_ = 0.0
         self.right_wheel_pos_ = 0.0
@@ -322,11 +323,11 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
         self.starting_time_ = self.get_clock().now()
-        self.main_execution_timer = self.create_timer(
-            (1.0 / self.main_rate__),
-            self.main_execution,
-            callback_group=ReentrantCallbackGroup(),
-        )
+        # self.main_execution_timer = self.create_timer(
+        #     (1.0 / self.main_rate__),
+        #     self.main_execution,
+        #     callback_group=ReentrantCallbackGroup(),
+        # )
         self.cmd_vel_back_timer = self.create_timer(
             (1.0 / self.cmd_vel_back_rate__),
             self.cmd_vel_back,
@@ -359,7 +360,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_temp_subscriber)
         self.joint_state_publish_timer.destroy()
         self.odom_publish_timer.destroy()
-        self.main_execution_timer.destroy()
+        # self.main_execution_timer.destroy()
         # self.agent_checker_timer.destroy()
         return TransitionCallbackReturn.SUCCESS
 
@@ -377,7 +378,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_temp_subscriber)
         self.joint_state_publish_timer.destroy()
         self.odom_publish_timer.destroy()
-        self.main_execution_timer.destroy()
+        # self.main_execution_timer.destroy()
         # self.agent_checker_timer.destroy()
         return TransitionCallbackReturn.SUCCESS
 
@@ -396,7 +397,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_temp_subscriber)
         self.joint_state_publish_timer.destroy()
         self.odom_publish_timer.destroy()
-        self.main_execution_timer.destroy()
+        # self.main_execution_timer.destroy()
         # self.agent_checker_timer.destroy()
         return super().on_error(state)
 
@@ -483,7 +484,7 @@ class ControllerServer(LifecycleNode):
     def main_execution(self):
         self.current_time = self.get_clock().now()
         dt = self.current_time - self.starting_time_
-        self.dt = float(dt.to_msg().sec) + (float(dt.to_msg().nanosec) / 1e9)
+        dt_ns = float(dt.to_msg().sec) + (float(dt.to_msg().nanosec) / 1e9)
 
         # if self.encoder_readings_.data:
         #     self.right_encoder, self.left_encoder = self.encoder_readings_.data
@@ -494,7 +495,7 @@ class ControllerServer(LifecycleNode):
         self.vx = (self.right_encoder + self.left_encoder) / 2.0
         self.vth = (self.right_encoder - self.left_encoder) / self.wheels_separation__
 
-        self.pos_calc(self.dt, self.vx, self.vth)
+        self.pos_calc(dt_ns, self.vx, self.vth)
         self.quad_calc(self.orientation, self.th)
 
         self.left_wheel_pos_ += self.left_encoder
@@ -502,7 +503,7 @@ class ControllerServer(LifecycleNode):
 
         # self.ori_calc_comp_filter(
         #     self.alpha,
-        #     self.dt,
+        #     dt_ns,
         #     self.imu_msg.angular_velocity.x,
         #     self.imu_msg.angular_velocity.y,
         #     self.imu_msg.angular_velocity.z,
@@ -512,7 +513,7 @@ class ControllerServer(LifecycleNode):
         # )
 
         # self.ori_calc_simple(
-        #     self.dt,
+        #     dt_ns,
         #     self.imu_msg.angular_velocity.x,
         #     self.imu_msg.angular_velocity.y,
         #     self.imu_msg.angular_velocity.z,
@@ -523,7 +524,7 @@ class ControllerServer(LifecycleNode):
         if abs(self.right_wheel_pos_) >= (2.0 * pi):
             self.right_wheel_pos_ = 0.0
 
-        self.total_elapsed_time += self.dt
+        self.total_elapsed_time += dt_ns
         self.starting_time_ = self.current_time
 
     def pos_calc(self, dt, vx, vth, vy=0.0):
@@ -587,6 +588,8 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
 
     def uros_encoder_subscription(self, motor_vels: JointState):
+        self.encoder_teste.header.stamp = motor_vels.header.stamp
+        
         self.encoder_teste.velocity = motor_vels.velocity
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):

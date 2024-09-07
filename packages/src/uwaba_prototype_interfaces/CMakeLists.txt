@@ -12,7 +12,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/ControlActions.action"
-  "msg/EconderMsg.msg"
+  "msg/EnconderMsg.msg"
   "msg/ServerLog.msg"
   "srv/ManagerServices.srv"
   DEPENDENCIES std_msgs
