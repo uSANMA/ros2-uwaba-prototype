@@ -10,6 +10,7 @@ from rclpy.qos import QoSProfile
 
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from geometry_msgs.msg import TwistStamped
+from uwaba_prototype_interfaces.msg import EncoderMsg
 
 
 class UrosEmulator(Node):
@@ -26,7 +27,7 @@ class UrosEmulator(Node):
         self.temperature_publish_freq_ = 70
         self.imu_publish_freq_ = 50
 
-        self.encoder_msgs_ = JointState()
+        self.encoder_msgs_ = EncoderMsg()
         self.lidar_msgs_ = LaserScan()
         self.temperature_msgs_ = Temperature()
         self.imu_msgs_ = Imu()
@@ -39,7 +40,7 @@ class UrosEmulator(Node):
         self.wheel_distance_ = 0.13607
 
         self.encoder_publisher_ = self.create_publisher(
-            JointState, "micro_encoders", self.qos_profile_micro_
+            EncoderMsg, "micro_encoders", self.qos_profile_micro_
         )
         self.lidar_publisher_ = self.create_publisher(
             LaserScan, "micro_laserscan", self.qos_profile_micro_
@@ -82,18 +83,14 @@ class UrosEmulator(Node):
     def encoder_publish(self):
         if self.linear_x_ is not None and self.angular_z_ is not None:
             self.encoder_msgs_.header.stamp = self.get_clock().now().to_msg()
-            self.encoder_msgs_.header.frame_id = "motor_vels"
-            self.encoder_msgs_.name = ["Left_wheel_velocity", "Right_wheel_velocity"]
-            self.encoder_msgs_.velocity = [
+            self.encoder_msgs_.encoders = [
                 self.left_wheel_vel_,
                 self.right_wheel_vel_,
             ]
             self.encoder_publisher_.publish(self.encoder_msgs_)
         elif self.linear_x_ is None and self.angular_z_ is None:
             self.encoder_msgs_.header.stamp = self.get_clock().now().to_msg()
-            self.encoder_msgs_.header.frame_id = "motor_vels"
-            self.encoder_msgs_.name = ["Left_wheel_velocity", "Right_wheel_velocity"]
-            self.encoder_msgs_.velocity = [
+            self.encoder_msgs_.encoders = [
                 0.0,
                 0.0,
             ]

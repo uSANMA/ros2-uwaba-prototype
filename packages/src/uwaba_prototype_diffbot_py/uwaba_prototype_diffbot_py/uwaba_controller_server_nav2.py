@@ -201,13 +201,11 @@ class ControllerServer(LifecycleNode):
         (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
         self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
-        self.tf_broadcaster_imu = TransformBroadcaster(self, self.qos_profile_)
         self.imu_tf = TransformStamped()
         self.odom_tf = TransformStamped()
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
-        self.orientation_imu_static = Quaternion()
 
         self.angular_velocity = Vector3()
 
@@ -222,8 +220,9 @@ class ControllerServer(LifecycleNode):
         self.encoder_readings_ = EncoderMsg()
 
         self.joint_state = JointState()
-        self.joint_state.header.frame_id = "wheels_states"
-        self.joint_state.name = [
+
+        self.js_frame_id = "wheels_states"
+        self.js_states_name = [
             "Left_sprocket_base_joint",
             "Right_sprocket_base_joint",
         ]
@@ -311,12 +310,6 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_back_timer = self.create_timer(
             (1.0 / self.cmd_vel_back_rate__),
             self.cmd_vel_back,
-            callback_group=ReentrantCallbackGroup(),
-        )
-        
-        self.send_imu_transform_timer = self.create_timer(
-            (1.0 / 30.0),
-            self.send_imu_transform,
             callback_group=ReentrantCallbackGroup(),
         )
 
@@ -465,38 +458,6 @@ class ControllerServer(LifecycleNode):
             goal_handle.abort()
             return result
 
-    def pos_calc(self, dt, vx, vth, vy=0.0):
-        # For differential bots the lateral velocity is zero, so vy = 0.0
-        ## This is a transformation matrix so we can exchange info between fixed and moving references
-        delta_x = vx * cos(self.th) * dt
-        delta_y = vx * sin(self.th) * dt
-        delta_th = vth * dt
-
-        self.x += delta_x
-        self.y += delta_y
-        self.th += delta_th
-
-    def ori_calc_comp_filter(self, alpha, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
-        roll_gyro = self.roll + gyro_x * dt
-        pitch_gyro = self.pitch + gyro_y * dt
-        yaw_gyro = self.yaw + gyro_z * dt
-
-        roll_accel = atan2(ay, sqrt(az**2 + az**2))
-        pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
-
-        self.roll = alpha * roll_gyro + (1 - alpha) * roll_accel
-        self.pitch = alpha * pitch_gyro + (1 - alpha) * pitch_accel
-        self.yaw = yaw_gyro
-
-        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
-
-    def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
-        self.roll += gyro_x * dt
-        self.pitch += gyro_y * dt
-        self.yaw += gyro_z * dt
-        
-        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
-
     def uros_imu_subscription(self, imu_msgs: Imu):
         self.imu_msg.header.stamp = imu_msgs.header.stamp
         current_time = self.imu_msg.header.stamp
@@ -539,9 +500,21 @@ class ControllerServer(LifecycleNode):
         #     self.imu_msg.angular_velocity.z,
         # )
         self.imu_msg.orientation = self.orientation_imu
-
+        self.set_state_transform(
+            self.main_frame__,
+            self.imu_frame__,
+            self.get_clock().now().to_msg(),
+            self.imu_tf,
+            0.0,
+            0.0,
+            0.0,
+            self.roll,
+            self.pitch,
+            self.yaw,
+            self.orientation_imu,
+        )
         self.imu_publisher_.publish(self.imu_msg)
-        
+        self.tf_broadcaster.sendTransform(self.imu_tf)
 
         self.imu_last_time_ = current_time
 
@@ -560,11 +533,11 @@ class ControllerServer(LifecycleNode):
         )
 
         if encoder_vels.encoders:
-            self.right_encoder, self.left_encoder = self.encoder_readings_.encoders
+            self.left_encoder, self.right_encoder = self.encoder_readings_.encoders
 
-            self.vx = (self.right_encoder + self.left_encoder) / 2.0
+            self.vx = (self.left_encoder + self.right_encoder) / 2.0
             self.vth = (
-                self.right_encoder - self.left_encoder
+                self.left_encoder - self.right_encoder
             ) / self.wheels_separation__
 
             self.pos_calc(dt, self.vx, self.vth)
@@ -619,35 +592,88 @@ class ControllerServer(LifecycleNode):
         # self.battery_pack_publisher_.publish(self.bat_msg)
         pass
 
-    # def set_imu_pkg(
-    #    self,
-    #    current_time,
-    #    set_imu_msg: Imu,
-    #    frame_id,
-    #    th,
-    #    set_orientation: Quaternion,
-    #    set_angular_velocity: Vector3,
-    #    set_linear_acceleration: Vector3,
-    # ) -> Imu:
-    #    set_imu_msg.header.stamp = current_time.to_msg()
-    #    set_imu_msg.header.frame_id = frame_id
-    #    set_imu_msg.orientation = self.quad_calc(set_orientation, th)
-    #    set_imu_msg.angular_velocity = set_angular_velocity
-    #    set_imu_msg.linear_acceleration = set_linear_acceleration
-    #    return set_imu_msg
+    def joint_state_publish(self):
+        self.set_joint_state_pkg(
+            self.get_clock().now().to_msg(),
+            self.joint_state,
+            self.js_frame_id,
+            self.js_states_name,
+            [self.left_wheel_pos_, self.right_wheel_pos_],
+            [self.left_encoder, self.right_encoder],
+        )
+        self.joint_state_publisher_.publish(self.joint_state)
 
-    # def set_twist_pkg(
-    #    self, current_time, set_twist_msg: TwistStamped, frame_id, vx, vth
-    # ) -> TwistStamped:
-    #    set_twist_msg.header.stamp = current_time.to_msg()
-    #   set_twist_msg.header.frame_id = frame_id
-    #    set_twist_msg.twist.linear.x = vx
-    #    set_twist_msg.twist.linear.y = 0.0
-    #    set_twist_msg.twist.linear.z = 0.0
-    #    set_twist_msg.twist.angular.x = 0.0
-    #    set_twist_msg.twist.angular.y = 0.0
-    #    set_twist_msg.twist.angular.z = vth
-    #    return set_twist_msg
+    def odom_publish(self):
+        self.set_odom_pkg(
+            self.get_clock().now().to_msg(),
+            self.odom_msg,
+            self.x,
+            self.y,
+            self.vx,
+            self.vth,
+            self.th,
+            self.orientation,
+        )
+        self.odom_publisher_.publish(self.odom_msg)
+        self.set_state_transform(
+            self.odom_frame__,
+            self.main_frame__,
+            self.get_clock().now().to_msg(),
+            self.odom_tf,
+            self.x,
+            self.y,
+            self.z,
+            0.0,
+            0.0,
+            self.th,
+            self.orientation,
+        )
+        self.tf_broadcaster.sendTransform(self.odom_tf)
+
+    def cmd_vel_back(self):
+        self.send_cmd_vel_back_.publish(self.cmd_vel_)
+
+    def pos_calc(self, dt, vx, vth, vy=0.0):
+        # For differential bots the lateral velocity is zero, so vy = 0.0
+        ## This is a transformation matrix so we can exchange info between fixed and moving references
+        delta_x = vx * cos(self.th) * dt
+        delta_y = vx * sin(self.th) * dt
+        delta_th = vth * dt
+
+        self.x += delta_x
+        self.y += delta_y
+        self.th += delta_th
+
+    def ori_calc_comp_filter(self, alpha, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
+        roll_gyro = self.roll + gyro_x * dt
+        pitch_gyro = self.pitch + gyro_y * dt
+        yaw_gyro = self.yaw + gyro_z * dt
+
+        roll_accel = atan2(ay, sqrt(az**2 + az**2))
+        pitch_accel = atan2(-ax, sqrt(ay**2 + az**2))
+
+        self.roll = alpha * roll_gyro + (1 - alpha) * roll_accel
+        self.pitch = alpha * pitch_gyro + (1 - alpha) * pitch_accel
+        self.yaw = yaw_gyro
+
+        # self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
+
+    def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
+        self.roll += gyro_x * dt
+        self.pitch += gyro_y * dt
+        self.yaw += gyro_z * dt
+
+        # self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
+
+    # This is an array filler for covariances
+    def null_cov_n(self, n=0.0, value=-1.0):
+        return np.full((n,), value)
+
+    def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
+        set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
+            tf_transformations.quaternion_from_euler(ax, ay, az)
+        )
+        return set_orientation
 
     def set_odom_pkg(
         self,
@@ -677,15 +703,16 @@ class ControllerServer(LifecycleNode):
         self,
         current_time,
         set_joint_state: JointState,
-        left_pos: float,
-        right_pos: float,
-        left_vel: float,
-        right_vel: float,
-    ) -> JointState:
+        frame_id: str,
+        name: list[str],
+        pos: list[float],
+        vel: list[float],
+    ):
         set_joint_state.header.stamp = current_time
-        set_joint_state.position = [(left_pos), (right_pos)]
-        set_joint_state.velocity = [(left_vel), (right_vel)]
-        return set_joint_state
+        set_joint_state.header.frame_id = frame_id
+        set_joint_state.name = name
+        set_joint_state.position = pos
+        set_joint_state.velocity = vel
 
     def set_state_transform(
         self,
@@ -700,7 +727,7 @@ class ControllerServer(LifecycleNode):
         pitch,
         yaw,
         set_orientation: Quaternion,
-    ) -> TransformStamped:
+    ):
         set_tf.header.stamp = current_time
         set_tf.header.frame_id = frame_id
         set_tf.child_frame_id = child_frame_id
@@ -709,74 +736,6 @@ class ControllerServer(LifecycleNode):
         set_tf.transform.translation.y = pos_y
         set_tf.transform.translation.z = pos_z
         set_tf.transform.rotation = self.quad_calc(set_orientation, yaw, roll, pitch)
-        return set_tf
-
-    def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
-        set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
-            tf_transformations.quaternion_from_euler(ax, ay, az)
-        )
-        return set_orientation
-
-    def joint_state_publish(self):
-        self.set_joint_state_pkg(
-            self.get_clock().now().to_msg(),
-            self.joint_state,
-            self.left_wheel_pos_,
-            self.right_wheel_pos_,
-            self.left_encoder,
-            self.right_encoder,
-        )
-        self.joint_state_publisher_.publish(self.joint_state)
-
-    def odom_publish(self):
-        self.set_odom_pkg(
-            self.get_clock().now().to_msg(),
-            self.odom_msg,
-            self.x,
-            self.y,
-            self.vx,
-            self.vth,
-            self.th,
-            self.orientation,
-        )
-        self.odom_publisher_.publish(self.odom_msg)
-        self.set_state_transform(
-            self.main_frame__,
-            self.odom_frame__,
-            self.get_clock().now().to_msg(),
-            self.odom_tf,
-            self.x,
-            self.y,
-            self.z,
-            0.0,
-            0.0,
-            self.th,
-            self.orientation,
-        )
-        self.tf_broadcaster.sendTransform(self.odom_tf)
-        
-    def send_imu_transform(self):
-        self.set_state_transform(
-            self.odom_frame__,
-            self.imu_frame__,
-            self.get_clock().now().to_msg(),
-            self.imu_tf,
-            self.x,
-            self.y,
-            self.z,
-            self.roll,
-            self.pitch,
-            self.yaw,
-            self.orientation_imu,
-        )
-        self.tf_broadcaster_imu.sendTransform(self.imu_tf)
-
-    def cmd_vel_back(self):
-        self.send_cmd_vel_back_.publish(self.cmd_vel_)
-
-    # This is an array filler for covariances
-    def null_cov_n(self, n=0.0, value=-1.0):
-        return np.full((n,), value)
 
 
 def main(args=None):

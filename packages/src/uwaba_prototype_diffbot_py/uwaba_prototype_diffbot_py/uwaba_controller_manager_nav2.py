@@ -237,7 +237,7 @@ class ControllerManager(Node):
         active_encoder_nodes = self.get_publishers_info_by_topic("/micro_encoders")
         if active_imu_nodes and active_encoder_nodes and active_scan_nodes:
             self.datalog_counter_ += 1
-            if (self.datalog_counter_ == 15):
+            if (self.datalog_counter_ >= 15):
                 for info in active_imu_nodes:
                     self.get_logger().info(
                         f"\n\t- \033[95;1mNodes found:\033[0m \033[94m{info.node_name}\033[0m\
