@@ -2,8 +2,6 @@
 import rclpy
 import rclpy.logging
 import threading
-import time
-import requests
 import rclpy.node
 import tf_transformations
 import numpy as np
@@ -24,33 +22,8 @@ from uwaba_prototype_interfaces.action import ControlActions
 from geometry_msgs.msg import TwistStamped, Quaternion, Vector3, Twist
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature, BatteryState
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float32MultiArray, Float64MultiArray
 
-
-def restart_microcontroller(
-    url, retries=5, timeout=0.2, retry_delay=10.0, sleep=3.0
-) -> bool:
-    for _ in range(retries):
-        try:
-            rclpy.logging.get_logger("URL Log").info(
-                f"Sending request to the microcontroller URL to restart..."
-            )
-            response = requests.get(url, timeout=timeout)
-            response.raise_for_status()
-            rclpy.logging.get_logger("URL Log").info(
-                f"Request successful. Response: {response}"
-            )
-            time.sleep(sleep)
-            return True
-
-        except requests.exceptions.RequestException as e:
-            rclpy.logging.get_logger("URL Log").error(f"An error occurred: {e}")
-            time.sleep(retry_delay)
-
-    rclpy.logging.get_logger("URL Log").error(
-        f"Failed to restart microcontroller after {retries} retries."
-    )
-    return False
+from uwaba_prototype_interfaces.msg import EncoderMsg
 
 
 class ControllerServer(LifecycleNode):
@@ -136,6 +109,12 @@ class ControllerServer(LifecycleNode):
         self.temperature_topic__ = self.get_parameter("temperature_topic").value
         self.declare_parameter("battery_pack_topic", "bat")
         self.battery_pack_topic__ = self.get_parameter("battery_pack_topic").value
+        self.declare_parameter("comp_filter_alpha", 1.0)
+        self.comp_filter_alpha__ = self.get_parameter("comp_filter_alpha").value
+        self.declare_parameter("imu_dimensions_xyz", [0.0, 0.0, 0.0])
+        self.imu_dimensions_xyz__ = self.get_parameter("imu_dimensions_xyz").value
+        self.declare_parameter("imu_rotation_rpy", [0.0, 0.0, 0.0])
+        self.imu_rotation_rpy__ = self.get_parameter("imu_rotation_rpy").value
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info(
@@ -202,7 +181,6 @@ class ControllerServer(LifecycleNode):
         self.vy = 0.0
         self.vz = 0.0
         self.vth = 0.0
-        self.dt = 0.0
         self.total_elapsed_time = 0.0
         self.left_wheel_pos_ = 0.0
         self.right_wheel_pos_ = 0.0
@@ -213,23 +191,27 @@ class ControllerServer(LifecycleNode):
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
-        self.alpha = 0.88  # Complementary filter constant (0 < alpha < 1)
+        self.alpha = (
+            self.comp_filter_alpha__
+        )  # Complementary filter constant (0 < alpha < 1)
         omegaT = 7.2921159e-5
         latitude_cornelio = -23.1883438
         self.earthRotationZ = omegaT * cos((latitude_cornelio * pi) / 180.0)
+        (self.imu_pos_x, self.imu_pos_y, self.imu_pos_z) = self.imu_dimensions_xyz__
+        (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
-        # self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
-        # self.odom_tf_left = TransformStamped()
-        # self.odom_tf_right = TransformStamped()
+        self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        self.tf_broadcaster_imu = TransformBroadcaster(self, self.qos_profile_)
+        self.imu_tf = TransformStamped()
+        self.odom_tf = TransformStamped()
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
+        self.orientation_imu_static = Quaternion()
 
         self.angular_velocity = Vector3()
 
         self.linear_acceleration = Vector3()
-
-        self.encoder_teste = JointState()
 
         self.cmd_vel_ = TwistStamped()
         self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
@@ -237,7 +219,7 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.linear = Twist().linear
         self.cmd_vel_.twist.angular = Twist().angular
 
-        self.encoder_readings_ = Float64MultiArray()
+        self.encoder_readings_ = EncoderMsg()
 
         self.joint_state = JointState()
         self.joint_state.header.frame_id = "wheels_states"
@@ -247,8 +229,8 @@ class ControllerServer(LifecycleNode):
         ]
 
         self.odom_msg = Odometry()
-        self.odom_msg.header.frame_id = self.odom_frame__
-        self.odom_msg.child_frame_id = self.main_frame__
+        self.odom_msg.header.frame_id = self.main_frame__
+        self.odom_msg.child_frame_id = self.odom_frame__
 
         self.imu_msg = Imu()
         self.imu_msg.header.frame_id = self.imu_frame__
@@ -262,14 +244,17 @@ class ControllerServer(LifecycleNode):
         self.bat_msg = BatteryState()
         self.bat_msg.header.frame_id = self.battery_frame__
 
-        self.debug_counter = 0  ###############################################################################
-
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info(
             "Server on activate. Now creating subscribers and publishers' timer callbacks..."
-        )  ## REMOVE WHEN DONE
+        )
+
+        self.starting_time_ = self.get_clock().now()
+        self.encoder_last_time_ = self.get_clock().now().to_msg()
+        self.imu_last_time_ = self.get_clock().now().to_msg()
+
         self.cmd_vel_subscriber = self.create_subscription(
             TwistStamped,
             f"{self.cmd_vel_topic__}",
@@ -278,7 +263,7 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
         )
         self.uros_encoder_state_subscriber = self.create_subscription(
-            JointState,
+            EncoderMsg,
             f"{self.uros_encoder_topic__}",
             self.uros_encoder_subscription,
             self.qos_profile_micro_,
@@ -323,12 +308,15 @@ class ControllerServer(LifecycleNode):
             self.odom_publish,
             callback_group=ReentrantCallbackGroup(),
         )
-        self.starting_time_ = self.get_clock().now()
-        self.encoder_last_time_ = self.get_clock().now().to_msg()
-        self.imu_last_time_ = self.get_clock().now().to_msg()
         self.cmd_vel_back_timer = self.create_timer(
             (1.0 / self.cmd_vel_back_rate__),
             self.cmd_vel_back,
+            callback_group=ReentrantCallbackGroup(),
+        )
+        
+        self.send_imu_transform_timer = self.create_timer(
+            (1.0 / 30.0),
+            self.send_imu_transform,
             callback_group=ReentrantCallbackGroup(),
         )
 
@@ -363,6 +351,7 @@ class ControllerServer(LifecycleNode):
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info("Server on shutdown")
+        self.server_activated_ = False
         self.control_server_.destroy()
         self.destroy_publisher(self.cmd_vel_subscriber)
         self.destroy_publisher(self.send_cmd_vel_back_)
@@ -397,7 +386,7 @@ class ControllerServer(LifecycleNode):
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
-        self.get_logger().info("Received a goal.")  ## REMOVE WHEN DONE
+        self.get_logger().info("Received a goal.")
         if not self.server_activated_:
             self.get_logger().warn("Server not yet activated. Rejecting any goals...")
             return GoalResponse.REJECT
@@ -476,7 +465,6 @@ class ControllerServer(LifecycleNode):
             goal_handle.abort()
             return result
 
-
     def pos_calc(self, dt, vx, vth, vy=0.0):
         # For differential bots the lateral velocity is zero, so vy = 0.0
         ## This is a transformation matrix so we can exchange info between fixed and moving references
@@ -506,6 +494,7 @@ class ControllerServer(LifecycleNode):
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
+        
         self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
 
     def uros_imu_subscription(self, imu_msgs: Imu):
@@ -514,6 +503,7 @@ class ControllerServer(LifecycleNode):
         dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.imu_last_time_.sec + (self.imu_last_time_.nanosec / 1e9)
         )
+
         (
             self.imu_msg.angular_velocity.x,
             self.imu_msg.angular_velocity.y,
@@ -532,7 +522,6 @@ class ControllerServer(LifecycleNode):
             imu_msgs.linear_acceleration.x,
             imu_msgs.linear_acceleration.z,
         )
-        self.imu_msg.orientation = self.orientation_imu
         self.ori_calc_comp_filter(
             self.alpha,
             dt,
@@ -544,13 +533,17 @@ class ControllerServer(LifecycleNode):
             self.imu_msg.linear_acceleration.z,
         )
         # self.ori_calc_simple(
-        #     dt_sns,
+        #     dt,
         #     self.imu_msg.angular_velocity.x,
         #     self.imu_msg.angular_velocity.y,
         #     self.imu_msg.angular_velocity.z,
         # )
-        self.imu_last_time_ = current_time
+        self.imu_msg.orientation = self.orientation_imu
+
         self.imu_publisher_.publish(self.imu_msg)
+        
+
+        self.imu_last_time_ = current_time
 
     def cmd_vel_subscription(self, twist_msgs: TwistStamped):
         self.cmd_vel_.header.stamp = twist_msgs.header.stamp
@@ -558,30 +551,32 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.linear = twist_msgs.twist.linear
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
 
-    def uros_encoder_subscription(self, motor_vels: JointState):
-        self.encoder_teste.header.stamp = motor_vels.header.stamp
-        self.encoder_teste.velocity = motor_vels.velocity
-        current_time = self.encoder_teste.header.stamp
+    def uros_encoder_subscription(self, encoder_vels: EncoderMsg):
+        self.encoder_readings_.header.stamp = encoder_vels.header.stamp
+        self.encoder_readings_.encoders = encoder_vels.encoders
+        current_time = self.encoder_readings_.header.stamp
         dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.encoder_last_time_.sec + (self.encoder_last_time_.nanosec / 1e9)
         )
 
-        if self.encoder_teste.velocity:
-            self.right_encoder, self.left_encoder = self.encoder_teste.velocity
+        if encoder_vels.encoders:
+            self.right_encoder, self.left_encoder = self.encoder_readings_.encoders
 
-        self.vx = (self.right_encoder + self.left_encoder) / 2.0
-        self.vth = (self.right_encoder - self.left_encoder) / self.wheels_separation__
+            self.vx = (self.right_encoder + self.left_encoder) / 2.0
+            self.vth = (
+                self.right_encoder - self.left_encoder
+            ) / self.wheels_separation__
 
-        self.pos_calc(dt, self.vx, self.vth)
-        self.quad_calc(self.orientation, self.th)
+            self.pos_calc(dt, self.vx, self.vth)
+            self.quad_calc(self.orientation, self.th)
 
-        self.left_wheel_pos_ += self.left_encoder
-        self.right_wheel_pos_ += self.right_encoder
+            self.left_wheel_pos_ += self.left_encoder
+            self.right_wheel_pos_ += self.right_encoder
 
-        if abs(self.left_wheel_pos_) >= (2.0 * pi):
-            self.left_wheel_pos_ = 0.0
-        if abs(self.right_wheel_pos_) >= (2.0 * pi):
-            self.right_wheel_pos_ = 0.0
+            if abs(self.left_wheel_pos_) >= (2.0 * pi):
+                self.left_wheel_pos_ = 0.0
+            if abs(self.right_wheel_pos_) >= (2.0 * pi):
+                self.right_wheel_pos_ = 0.0
 
         self.encoder_last_time_ = current_time
 
@@ -684,11 +679,12 @@ class ControllerServer(LifecycleNode):
         set_joint_state: JointState,
         left_pos: float,
         right_pos: float,
-        vx: list,
+        left_vel: float,
+        right_vel: float,
     ) -> JointState:
         set_joint_state.header.stamp = current_time
         set_joint_state.position = [(left_pos), (right_pos)]
-        set_joint_state.velocity = vx
+        set_joint_state.velocity = [(left_vel), (right_vel)]
         return set_joint_state
 
     def set_state_transform(
@@ -696,7 +692,7 @@ class ControllerServer(LifecycleNode):
         frame_id,
         child_frame_id,
         current_time,
-        set_odom_trans: TransformStamped,
+        set_tf: TransformStamped,
         pos_x,
         pos_y,
         pos_z,
@@ -705,17 +701,15 @@ class ControllerServer(LifecycleNode):
         yaw,
         set_orientation: Quaternion,
     ) -> TransformStamped:
-        set_odom_trans.header.stamp = current_time.to_msg()
-        set_odom_trans.header.frame_id = frame_id
-        set_odom_trans.child_frame_id = child_frame_id
+        set_tf.header.stamp = current_time
+        set_tf.header.frame_id = frame_id
+        set_tf.child_frame_id = child_frame_id
         # Translation and rotation in 3-dimensions of child_frame_id from header.frame_id.
-        set_odom_trans.transform.translation.x = pos_x
-        set_odom_trans.transform.translation.y = pos_y
-        set_odom_trans.transform.translation.z = pos_z
-        set_odom_trans.transform.rotation = self.quad_calc(
-            set_orientation, yaw, roll, pitch
-        )
-        return set_odom_trans
+        set_tf.transform.translation.x = pos_x
+        set_tf.transform.translation.y = pos_y
+        set_tf.transform.translation.z = pos_z
+        set_tf.transform.rotation = self.quad_calc(set_orientation, yaw, roll, pitch)
+        return set_tf
 
     def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
         set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
@@ -729,7 +723,8 @@ class ControllerServer(LifecycleNode):
             self.joint_state,
             self.left_wheel_pos_,
             self.right_wheel_pos_,
-            self.encoder_teste.velocity,
+            self.left_encoder,
+            self.right_encoder,
         )
         self.joint_state_publisher_.publish(self.joint_state)
 
@@ -745,6 +740,36 @@ class ControllerServer(LifecycleNode):
             self.orientation,
         )
         self.odom_publisher_.publish(self.odom_msg)
+        self.set_state_transform(
+            self.main_frame__,
+            self.odom_frame__,
+            self.get_clock().now().to_msg(),
+            self.odom_tf,
+            self.x,
+            self.y,
+            self.z,
+            0.0,
+            0.0,
+            self.th,
+            self.orientation,
+        )
+        self.tf_broadcaster.sendTransform(self.odom_tf)
+        
+    def send_imu_transform(self):
+        self.set_state_transform(
+            self.odom_frame__,
+            self.imu_frame__,
+            self.get_clock().now().to_msg(),
+            self.imu_tf,
+            self.x,
+            self.y,
+            self.z,
+            self.roll,
+            self.pitch,
+            self.yaw,
+            self.orientation_imu,
+        )
+        self.tf_broadcaster_imu.sendTransform(self.imu_tf)
 
     def cmd_vel_back(self):
         self.send_cmd_vel_back_.publish(self.cmd_vel_)

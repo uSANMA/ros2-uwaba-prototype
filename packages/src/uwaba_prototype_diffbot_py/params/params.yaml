@@ -5,9 +5,12 @@ uwaba_controller_server_node:
     base_length: 0.2480000407
     base_width: 0.1058000177
     base_height: 0.0387500003
+    imu_dimensions_xyz: [0.061, -0.004, 0.001875]
+    imu_rotation_rpy: [0.0, 0.0, -1.570796327]
     cmd_vel_back: 30.0
     odom_rate: 30.0
     joint_state_rate: 30.0
+    comp_filter_alpha: 0.88
     main_frame: "base_footprint"
     odom_frame: "odom"
     lidar_frame: "laser_frame"
@@ -20,7 +23,7 @@ uwaba_controller_server_node:
     uros_lidar_topic: "micro_laserscan"
     uros_battery_topic: "micro_batterypack"
     odom_topic: "odom"
-    joint_states_topic: "joint_states"
+    joint_states_topic: "new_joint_states"
     cmd_vel_topic: "cmd_vel"
     imu_topic: "imu"
     scan_topic: "scan"
@@ -31,4 +34,4 @@ uwaba_controller_manager_node:
   ros__parameters:
     managed_node_name: "uwaba_controller_server_node"
     micro_ros_node_name: "uWABA"
-    microros_checker_rate: 20.0 # [s]
+    microros_checker_rate: 1.0 # [s]

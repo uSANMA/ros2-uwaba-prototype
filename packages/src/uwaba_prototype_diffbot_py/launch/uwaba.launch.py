@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 import requests
 from launch import LaunchDescription
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
@@ -16,16 +17,38 @@ from os.path import join
 from os import environ
 from ament_index_python.packages import get_package_share_directory
 import rclpy.logging
-from uwaba_prototype_diffbot_py.uwaba_controller_server_nav2 import (
-    restart_microcontroller,
-)
+
+def restart_microcontroller(
+    url, retries=5, timeout=0.2, retry_delay=5.0, sleep=3.0
+) -> bool:
+    for _ in range(retries):
+        try:
+            rclpy.logging.get_logger("URL Log").info(
+                f"Sending request to the microcontroller URL to restart..."
+            )
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+            rclpy.logging.get_logger("URL Log").info(
+                f"Request successful. Response: {response}"
+            )
+            time.sleep(sleep)
+            return True
+
+        except requests.exceptions.RequestException as e:
+            rclpy.logging.get_logger("URL Log").error(f"An error occurred: {e}")
+            time.sleep(retry_delay)
+
+    rclpy.logging.get_logger("URL Log").error(
+        f"Failed to restart microcontroller after {retries} retries."
+    )
+    return False
 
 
 def generate_launch_description():
-    # if not restart_microcontroller("http://172.16.14.13/restart.html"):
-    #     rclpy.logging.get_logger("uwaba.launch").error(
-    #         "Starting system in degraded mode..."
-    #     )
+    if not restart_microcontroller("http://172.16.14.13/restart.html"):
+        rclpy.logging.get_logger("uwaba.launch").error(
+            "Starting system in degraded mode..."
+        )
     # micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
@@ -40,14 +63,6 @@ def generate_launch_description():
     parameters = PathJoinSubstitution(
         [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "params.yaml"]
     )
-
-    # agent_node = Node(
-    #     package="micro_ros_agent",
-    #     executable="micro_ros_agent",
-    #     name="micro_ros_agent",
-    #     arguments=["udp4", "-p", "8888", "-v4"],
-    #     output="screen",
-    # )
 
     agent_node = ExecuteProcess(cmd=["MicroXRCEAgent", "udp4", "-p", "8888", "-v4"], output="screen")
 
@@ -111,9 +126,9 @@ def generate_launch_description():
             agent_node,
             server_node,
             client_node,
-            #joint_state_publisher_node,
             robot_state_publisher_node,
-            robot_localization_node,
+            joint_state_publisher_node,
+            # robot_localization_node,
             rviz_node,
         ]
     )
