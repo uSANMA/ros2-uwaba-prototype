@@ -10,7 +10,7 @@ uwaba_controller_server_node:
     cmd_vel_back: 30.0
     odom_rate: 30.0
     joint_state_rate: 30.0
-    comp_filter_alpha: 0.88
+    comp_filter_alpha: 0.98
     main_frame: "base_footprint"
     robot_base_frame: "base_link"
     odom_frame: "odom"
