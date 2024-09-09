@@ -106,12 +106,12 @@ def generate_launch_description():
     declare_container_name_cmd = DeclareLaunchArgument(
         "container_name",
         default_value="nav2_container",
-        description="the name of conatiner that nodes will load in if use composition",
+        description="the name of container that nodes will load in if use composition",
     )
 
     declare_use_respawn_cmd = DeclareLaunchArgument(
         "use_respawn",
-        default_value="False",
+        default_value="True",
         description="Whether to respawn if a node crashes. Applied when composition is disabled.",
     )
 

@@ -212,7 +212,9 @@ class ControllerServer(LifecycleNode):
         (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
         self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
-        self.tf_static_broadcaster = StaticTransformBroadcaster(self, self.qos_profile_tf_static_)
+        self.tf_static_broadcaster = StaticTransformBroadcaster(
+            self, self.qos_profile_tf_static_
+        )
         self.imu_tf = TransformStamped()
         self.odom_tf = TransformStamped()
 
@@ -240,8 +242,6 @@ class ControllerServer(LifecycleNode):
         ]
 
         self.odom_msg = Odometry()
-        self.odom_msg.header.frame_id = self.main_frame__
-        self.odom_msg.child_frame_id = self.odom_frame__
 
         self.imu_msg = Imu()
         self.imu_msg.header.frame_id = self.imu_frame__
@@ -263,7 +263,6 @@ class ControllerServer(LifecycleNode):
         )
 
         # self.starting_time_ = self.get_clock().now()
-        
 
         self.cmd_vel_subscriber = self.create_subscription(
             TwistStamped,
@@ -473,7 +472,7 @@ class ControllerServer(LifecycleNode):
             goal_handle.publish_feedback(feedback)
             goal_handle.abort()
             return result
-    
+
     def main_execution(self):
         if 0.030 > self.imu_dt > 0.032:
             self.first_imu_msg_flag_ = False
@@ -481,7 +480,6 @@ class ControllerServer(LifecycleNode):
         if 0.030 > self.enc_dt > 0.032:
             self.first_encoder_msg_flag_ = False
             self.get_logger().info("Encoder flag was set!")
-    
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         if not self.first_imu_msg_flag_:
@@ -492,7 +490,6 @@ class ControllerServer(LifecycleNode):
         self.imu_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.imu_last_time_.sec + (self.imu_last_time_.nanosec / 1e9)
         )
-        
 
         (
             self.imu_msg.angular_velocity.x,
@@ -639,28 +636,34 @@ class ControllerServer(LifecycleNode):
         self.set_odom_pkg(
             self.get_clock().now().to_msg(),
             self.odom_msg,
+            self.odom_frame__,
+            self.main_frame__,
             self.x,
             self.y,
+            self.z,
             self.vx,
+            0.0,
             self.vth,
+            0.0,
+            0.0,
             self.th,
             self.orientation,
         )
         self.odom_publisher_.publish(self.odom_msg)
-        self.set_state_transform(
-            self.odom_frame__,
-            self.main_frame__,
-            self.get_clock().now().to_msg(),
-            self.odom_tf,
-            self.x,
-            self.y,
-            self.z,
-            0.0,
-            0.0,
-            self.th,
-            self.orientation,
-        )
-        self.tf_broadcaster.sendTransform(self.odom_tf)
+        # self.set_state_transform(
+        #     self.odom_frame__,
+        #     self.main_frame__,
+        #     self.get_clock().now().to_msg(),
+        #     self.odom_tf,
+        #     self.x,
+        #     self.y,
+        #     self.z,
+        #     0.0,
+        #     0.0,
+        #     self.th,
+        #     self.orientation,
+        # )
+        # self.tf_broadcaster.sendTransform(self.odom_tf)
 
     def cmd_vel_back(self):
         self.send_cmd_vel_back_.publish(self.cmd_vel_)
@@ -711,24 +714,32 @@ class ControllerServer(LifecycleNode):
         self,
         current_time,
         set_odom_msg: Odometry,
-        pos_x,
-        pos_y,
-        vx,
-        vth,
-        th,
+        frame_id: str,
+        child_frame_id: str,
+        pos_x: float,
+        pos_y: float,
+        pos_z: float,
+        vx: float,
+        vy: float,
+        vz: float,
+        ax: float,
+        ay: float,
+        az: float,
         set_orientation: Quaternion,
     ) -> Odometry:
         set_odom_msg.header.stamp = current_time
+        set_odom_msg.header.frame_id = frame_id
+        set_odom_msg.child_frame_id = child_frame_id
         set_odom_msg.pose.pose.position.x = pos_x
         set_odom_msg.pose.pose.position.y = pos_y
-        set_odom_msg.pose.pose.position.z = 0.0
+        set_odom_msg.pose.pose.position.z = pos_z
         set_odom_msg.twist.twist.linear.x = vx
-        set_odom_msg.twist.twist.linear.y = 0.0
-        set_odom_msg.twist.twist.linear.z = 0.0
-        set_odom_msg.twist.twist.angular.x = 0.0
-        set_odom_msg.twist.twist.angular.y = 0.0
-        set_odom_msg.twist.twist.angular.z = vth
-        set_odom_msg.pose.pose.orientation = self.quad_calc(set_orientation, th)
+        set_odom_msg.twist.twist.linear.y = vy
+        set_odom_msg.twist.twist.linear.z = vz
+        set_odom_msg.twist.twist.angular.x = ax
+        set_odom_msg.twist.twist.angular.y = ay
+        set_odom_msg.twist.twist.angular.z = az
+        set_odom_msg.pose.pose.orientation = self.quad_calc(set_orientation, az)
         return set_odom_msg
 
     def set_joint_state_pkg(

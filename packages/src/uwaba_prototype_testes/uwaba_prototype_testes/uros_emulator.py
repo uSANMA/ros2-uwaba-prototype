@@ -23,7 +23,7 @@ class UrosEmulator(Node):
         )
 
         self.encoder_publish_freq_ = 30
-        self.lidar_publish_freq_ = 50
+        self.lidar_publish_freq_ = 6
         self.temperature_publish_freq_ = 70
         self.imu_publish_freq_ = 50
 
