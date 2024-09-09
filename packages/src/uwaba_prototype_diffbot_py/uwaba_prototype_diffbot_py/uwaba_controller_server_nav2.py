@@ -525,20 +525,20 @@ class ControllerServer(LifecycleNode):
             self.imu_msg.angular_velocity.y,
             self.imu_msg.angular_velocity.z,
         )
-        self.set_state_transform(
-            self.robot_base_frame__,
-            self.imu_frame__,
-            self.get_clock().now().to_msg(),
-            self.imu_tf,
-            self.imu_pos_x,
-            self.imu_pos_y,
-            self.imu_pos_z,
-            self.roll,
-            self.pitch,
-            self.yaw,
-            self.orientation_imu,
-        )
-        self.tf_static_broadcaster.sendTransform(self.imu_tf)
+        # self.set_state_transform(
+        #     self.robot_base_frame__,
+        #     self.imu_frame__,
+        #     self.get_clock().now().to_msg(),
+        #     self.imu_tf,
+        #     self.imu_pos_x,
+        #     self.imu_pos_y,
+        #     self.imu_pos_z,
+        #     self.roll,
+        #     self.pitch,
+        #     self.yaw,
+        #     self.orientation_imu,
+        # )
+        # self.tf_static_broadcaster.sendTransform(self.imu_tf)
         self.imu_msg.orientation = self.orientation_imu
         self.imu_publisher_.publish(self.imu_msg)
 
