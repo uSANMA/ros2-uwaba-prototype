@@ -152,6 +152,13 @@ def generate_launch_description():
                 remappings=remappings,
                 output="screen",
             ),
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="map_odom_static_broadcaster",
+                arguments=["0", "0", "0", "0", "0", "0", "1", "map", "odom"],
+                output="screen",
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(launch_dir, "slam_launch.py")
