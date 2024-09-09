@@ -8,7 +8,7 @@ This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_co
 </p>
 
 ## REQUIRED PACKAGES
-```
+```bash
 sudo apt install ros-humble-navigation2 -y
 sudo apt install ros-humble-nav2-bringup -y
 sudo apt install ros-humble-xacro -y
