@@ -1,4 +1,4 @@
-[![Static Badge](https://img.shields.io/badge/version-v0.22.3-blue)](https://github.com/uSANMA/ros2-uwaba-prototype)
+[![Static Badge](https://img.shields.io/badge/version-v0.25.0-green)](https://github.com/uSANMA/ros2-uwaba-prototype)
 # uWABA NAVIGATION AND CONTROLLER SYSTEMS
 This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_control in Python[^1] systems. Here will be displayed every file and package related to its development.
 
@@ -39,15 +39,15 @@ source install/local_setup.bash
 - [x] Add [URDF](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_description/urdf/uwaba_prototype.urdf.xacro) file from uwaba's model
 - [x] Add [meshes](https://github.com/uSANMA/ros2-uwaba-prototype/tree/beta/packages/src/uwaba_prototype_description/meshes/dae) file from uwaba's model
 - Config directory implementations:
-    - [ ] Implement Extended Kalman Filter file ([ekf.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/config/ekf.yaml))[^3]
-    - [ ] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/params/nav2_params.yaml))[^2]
+    - [x] Implement Extended Kalman Filter file ([ekf.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/config/ekf.yaml))[^3]
+    - [x] Implement Navigation 2 parameters file ([nav2_params.yaml](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/params/nav2_params.yaml))[^2]
 - Launch file implementations:
     - [x] Robot State Publisher node
     - [x] Joint State Publisher node
     - [x] RViz2 node
     - [x] Robot Stack node
-    - [ ] Robot Localization node
-    - [ ] [`nav2_bringup`](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/launch/bringup_launch.py)[^2] node
+    - [x] Robot Localization node
+    - [x] [`nav2_bringup`](https://github.com/uSANMA/ros2-uwaba-prototype/blob/beta/packages/src/uwaba_prototype_diffbot_py/launch/bringup_launch.py)[^2] node
     
 
 [^1]: We did a custom ros2_control in Python for simplicity of code.
