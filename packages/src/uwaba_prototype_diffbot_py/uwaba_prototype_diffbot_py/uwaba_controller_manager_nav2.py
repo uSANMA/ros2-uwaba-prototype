@@ -307,10 +307,6 @@ class ControllerManager(Node):
                 self.get_logger().info("\n\033[93;1m---\n\tIMU not publishing!\n---\033[0m")
             if not active_encoder_nodes:
                 self.get_logger().info("\n\033[93;1m---\n\tEncoder not publishing!\n---\033[0m")
-        else:
-            active_imu_nodes = 0
-            active_scan_nodes = 0
-            active_encoder_nodes = 0
 
 
 def main(args=None):
