@@ -574,7 +574,7 @@
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
         xyz="-0.0000000075 0.0000000000 -0.0000000037" />
       <geometry>
-        <cylinder radius="0.0161000043" length="0.0219299998" />
+        <cylinder radius="0.0165" length="0.0219299998" />
       </geometry>
     </collision>
 
@@ -591,7 +591,7 @@
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
         xyz="-0.0000000075 0.0000000000 -0.0000000037" />
       <geometry>
-        <cylinder radius="0.0161000006" length="0.0219299980" />
+        <cylinder radius="0.0165" length="0.0219299980" />
       </geometry>
     </visual>
 
@@ -602,7 +602,7 @@
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
         xyz="0.0000000149 0.0000000000 -0.0000000075" />
       <geometry>
-        <cylinder radius="0.0161000025" length="0.0219299998" />
+        <cylinder radius="0.0165" length="0.0219299998" />
       </geometry>
     </collision>
 
@@ -619,7 +619,7 @@
       <origin rpy="1.5707962513 0.0000000000 0.0000000000"
         xyz="0.0000000149 0.0000000000 -0.0000000075" />
       <geometry>
-        <cylinder radius="0.0161000006" length="0.0219299980" />
+        <cylinder radius="0.0165" length="0.0219299980" />
       </geometry>
     </visual>
 
@@ -932,7 +932,7 @@
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <geometry>
-        <cylinder radius="0.0161000006" length="0.0219300017" />
+        <cylinder radius="0.0165" length="0.0219300017" />
       </geometry>
     </collision>
 
@@ -949,7 +949,7 @@
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
         xyz="0.0000000000 0.0000000000 0.0000000000" />
       <geometry>
-        <cylinder radius="0.0161000006" length="0.0219300017" />
+        <cylinder radius="0.0165" length="0.0219300017" />
       </geometry>
     </visual>
 
@@ -960,7 +960,7 @@
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
         xyz="0.0000000075 0.0000000075 0.0000000000" />
       <geometry>
-        <cylinder radius="0.0161000006" length="0.0219300017" />
+        <cylinder radius="0.0165" length="0.0219300017" />
       </geometry>
     </collision>
 
@@ -977,7 +977,7 @@
       <origin rpy="-1.5707956553 0.0000000000 0.0000000000"
         xyz="0.0000000075 0.0000000075 0.0000000000" />
       <geometry>
-        <cylinder radius="0.0160999987" length="0.0219299998" />
+        <cylinder radius="0.0165" length="0.0219299998" />
       </geometry>
     </visual>
 

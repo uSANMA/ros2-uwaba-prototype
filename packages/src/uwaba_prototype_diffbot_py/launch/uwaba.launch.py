@@ -45,10 +45,10 @@ def restart_microcontroller(
 
 
 def generate_launch_description():
-    # if not restart_microcontroller("http://172.16.14.13/restart.html"):
-    #     rclpy.logging.get_logger("uwaba.launch").error(
-    #         "Starting system in degraded mode..."
-    #     )
+    if not restart_microcontroller("http://172.16.14.12/restart.html"):
+        rclpy.logging.get_logger("uwaba.launch").error(
+            "Starting system in degraded mode..."
+        )
     # micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
@@ -128,7 +128,7 @@ def generate_launch_description():
             client_node,
             robot_state_publisher_node,
             joint_state_publisher_node,
-            # robot_localization_node,
+            robot_localization_node,
             rviz_node,
         ]
     )

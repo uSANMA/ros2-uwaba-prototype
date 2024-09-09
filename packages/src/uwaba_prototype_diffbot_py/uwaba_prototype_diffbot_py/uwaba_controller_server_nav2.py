@@ -15,7 +15,7 @@ from rclpy.action.server import ServerGoalHandle
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 
-from tf2_ros import TransformBroadcaster, TransformStamped
+from tf2_ros import TransformBroadcaster, TransformStamped, StaticTransformBroadcaster
 
 from uwaba_prototype_interfaces.action import ControlActions
 
@@ -34,6 +34,9 @@ class ControllerServer(LifecycleNode):
         self.qos_profile_micro_ = QoSProfile(
             depth=10, reliability=2, durability=2, liveliness=1
         )
+        self.qos_profile_tf_static_ = QoSProfile(
+            depth=10, reliability=0, durability=0, liveliness=1
+        )
         self.qos_profile_ = 10
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
@@ -49,6 +52,10 @@ class ControllerServer(LifecycleNode):
         self.joint_state_left_wheel_ = 0.0
         self.joint_state_right_wheel_ = 0.0
         self.cmd_stop_flag_ = False
+        self.first_encoder_msg_flag_ = False
+        self.first_imu_msg_flag_ = False
+        self.encoder_last_time_ = self.get_clock().now().to_msg()
+        self.imu_last_time_ = self.get_clock().now().to_msg()
 
         self.declare_parameter("wheels_separation", 0.0)
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
@@ -72,6 +79,8 @@ class ControllerServer(LifecycleNode):
         self.lidar_frame__ = self.get_parameter("lidar_frame").value
         self.declare_parameter("main_frame", "base_footprint")
         self.main_frame__ = self.get_parameter("main_frame").value
+        self.declare_parameter("robot_base_frame", "base_link")
+        self.robot_base_frame__ = self.get_parameter("robot_base_frame").value
         self.declare_parameter("odom_frame", "odom")
         self.odom_frame__ = self.get_parameter("odom_frame").value
         self.declare_parameter("imu_frame", "imu_frame")
@@ -181,6 +190,8 @@ class ControllerServer(LifecycleNode):
         self.vy = 0.0
         self.vz = 0.0
         self.vth = 0.0
+        self.imu_dt = 0.0
+        self.enc_dt = 0.0
         self.total_elapsed_time = 0.0
         self.left_wheel_pos_ = 0.0
         self.right_wheel_pos_ = 0.0
@@ -201,6 +212,7 @@ class ControllerServer(LifecycleNode):
         (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
         self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self, self.qos_profile_tf_static_)
         self.imu_tf = TransformStamped()
         self.odom_tf = TransformStamped()
 
@@ -250,9 +262,8 @@ class ControllerServer(LifecycleNode):
             "Server on activate. Now creating subscribers and publishers' timer callbacks..."
         )
 
-        self.starting_time_ = self.get_clock().now()
-        self.encoder_last_time_ = self.get_clock().now().to_msg()
-        self.imu_last_time_ = self.get_clock().now().to_msg()
+        # self.starting_time_ = self.get_clock().now()
+        
 
         self.cmd_vel_subscriber = self.create_subscription(
             TwistStamped,
@@ -310,6 +321,11 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_back_timer = self.create_timer(
             (1.0 / self.cmd_vel_back_rate__),
             self.cmd_vel_back,
+            callback_group=ReentrantCallbackGroup(),
+        )
+        self.main_execution_timer = self.create_timer(
+            (1.0 / 35.0),
+            self.main_execution,
             callback_group=ReentrantCallbackGroup(),
         )
 
@@ -457,21 +473,34 @@ class ControllerServer(LifecycleNode):
             goal_handle.publish_feedback(feedback)
             goal_handle.abort()
             return result
+    
+    def main_execution(self):
+        if 0.030 > self.imu_dt > 0.032:
+            self.first_imu_msg_flag_ = False
+            self.get_logger().info("Imu flag was set!")
+        if 0.030 > self.enc_dt > 0.032:
+            self.first_encoder_msg_flag_ = False
+            self.get_logger().info("Encoder flag was set!")
+    
 
     def uros_imu_subscription(self, imu_msgs: Imu):
+        if not self.first_imu_msg_flag_:
+            self.encoder_last_time_ = imu_msgs.header.stamp
+            self.first_imu_msg_flag_ = True
         self.imu_msg.header.stamp = imu_msgs.header.stamp
         current_time = self.imu_msg.header.stamp
-        dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
+        self.imu_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.imu_last_time_.sec + (self.imu_last_time_.nanosec / 1e9)
         )
+        
 
         (
             self.imu_msg.angular_velocity.x,
             self.imu_msg.angular_velocity.y,
             self.imu_msg.angular_velocity.z,
         ) = (
-            -imu_msgs.angular_velocity.y,
             imu_msgs.angular_velocity.x,
+            imu_msgs.angular_velocity.y,
             imu_msgs.angular_velocity.z,
         )
         (
@@ -479,42 +508,42 @@ class ControllerServer(LifecycleNode):
             self.imu_msg.linear_acceleration.y,
             self.imu_msg.linear_acceleration.z,
         ) = (
-            -imu_msgs.linear_acceleration.y,
             imu_msgs.linear_acceleration.x,
+            imu_msgs.linear_acceleration.y,
             imu_msgs.linear_acceleration.z,
         )
-        self.ori_calc_comp_filter(
-            self.alpha,
-            dt,
-            self.imu_msg.angular_velocity.x,
-            self.imu_msg.angular_velocity.y,
-            self.imu_msg.angular_velocity.z,
-            self.imu_msg.linear_acceleration.x,
-            self.imu_msg.linear_acceleration.y,
-            self.imu_msg.linear_acceleration.z,
-        )
-        # self.ori_calc_simple(
+        # self.ori_calc_comp_filter(
+        #     self.alpha,
         #     dt,
         #     self.imu_msg.angular_velocity.x,
         #     self.imu_msg.angular_velocity.y,
         #     self.imu_msg.angular_velocity.z,
+        #     self.imu_msg.linear_acceleration.x,
+        #     self.imu_msg.linear_acceleration.y,
+        #     self.imu_msg.linear_acceleration.z,
         # )
-        self.imu_msg.orientation = self.orientation_imu
+        self.ori_calc_simple(
+            self.imu_dt,
+            self.imu_msg.angular_velocity.x,
+            self.imu_msg.angular_velocity.y,
+            self.imu_msg.angular_velocity.z,
+        )
         self.set_state_transform(
-            self.main_frame__,
+            self.robot_base_frame__,
             self.imu_frame__,
             self.get_clock().now().to_msg(),
             self.imu_tf,
-            0.0,
-            0.0,
-            0.0,
+            self.imu_pos_x,
+            self.imu_pos_y,
+            self.imu_pos_z,
             self.roll,
             self.pitch,
             self.yaw,
             self.orientation_imu,
         )
+        self.tf_static_broadcaster.sendTransform(self.imu_tf)
+        self.imu_msg.orientation = self.orientation_imu
         self.imu_publisher_.publish(self.imu_msg)
-        self.tf_broadcaster.sendTransform(self.imu_tf)
 
         self.imu_last_time_ = current_time
 
@@ -525,10 +554,13 @@ class ControllerServer(LifecycleNode):
         self.cmd_vel_.twist.angular = twist_msgs.twist.angular
 
     def uros_encoder_subscription(self, encoder_vels: EncoderMsg):
+        if not self.first_encoder_msg_flag_:
+            self.encoder_last_time_ = encoder_vels.header.stamp
+            self.first_encoder_msg_flag_ = True
         self.encoder_readings_.header.stamp = encoder_vels.header.stamp
         self.encoder_readings_.encoders = encoder_vels.encoders
         current_time = self.encoder_readings_.header.stamp
-        dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
+        self.enc_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.encoder_last_time_.sec + (self.encoder_last_time_.nanosec / 1e9)
         )
 
@@ -540,7 +572,7 @@ class ControllerServer(LifecycleNode):
                 self.left_encoder - self.right_encoder
             ) / self.wheels_separation__
 
-            self.pos_calc(dt, self.vx, self.vth)
+            self.pos_calc(self.enc_dt, self.vx, self.vth)
             self.quad_calc(self.orientation, self.th)
 
             self.left_wheel_pos_ += self.left_encoder
@@ -656,14 +688,14 @@ class ControllerServer(LifecycleNode):
         self.pitch = alpha * pitch_gyro + (1 - alpha) * pitch_accel
         self.yaw = yaw_gyro
 
-        # self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
+        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
 
     def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
 
-        # self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
+        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
 
     # This is an array filler for covariances
     def null_cov_n(self, n=0.0, value=-1.0):
