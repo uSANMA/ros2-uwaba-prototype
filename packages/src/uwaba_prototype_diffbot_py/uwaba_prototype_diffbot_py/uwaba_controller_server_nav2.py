@@ -9,7 +9,16 @@ from math import sin, cos, pi, atan2, sqrt
 
 from rclpy.lifecycle import LifecycleNode
 from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
-from rclpy.qos import QoSProfile
+from rclpy.qos import (
+    QoSProfile,
+    QoSLivelinessPolicy,
+    QoSReliabilityPolicy,
+    QoSHistoryPolicy,
+    QoSDurabilityPolicy,
+    Duration,
+)
+from rclpy.qos_event import SubscriptionEventCallbacks
+
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rclpy.executors import MultiThreadedExecutor
@@ -32,12 +41,36 @@ class ControllerServer(LifecycleNode):
         super().__init__(f"{self.lf_node_name_}")
         # Constructor parameters
         self.qos_profile_micro_ = QoSProfile(
-            depth=10, reliability=2, durability=2, liveliness=1
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.VOLATILE,
+            liveliness=QoSLivelinessPolicy.AUTOMATIC,
         )
+
         self.qos_profile_tf_static_ = QoSProfile(
-            depth=10, reliability=0, durability=0, liveliness=1
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.SYSTEM_DEFAULT,
+            durability=QoSDurabilityPolicy.SYSTEM_DEFAULT,
+            liveliness=QoSLivelinessPolicy.AUTOMATIC,
         )
-        self.qos_profile_ = 10
+
+        self.qos_profile_ = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.SYSTEM_DEFAULT,
+            durability=QoSDurabilityPolicy.SYSTEM_DEFAULT,
+            liveliness=QoSLivelinessPolicy.AUTOMATIC,
+        )
+
+        # self.encoder_sub_event_callback_ = SubscriptionEventCallbacks(
+        #     deadline=self.encoder_deadline_sub_event,
+        #     liveliness=self.encoder_liveliness_sub_event,
+        # )
+        # self.imu_sub_event_callback_ = SubscriptionEventCallbacks()
+        # self.lidar_sub_event_callback_ = SubscriptionEventCallbacks()
+
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
@@ -211,12 +244,12 @@ class ControllerServer(LifecycleNode):
         (self.imu_pos_x, self.imu_pos_y, self.imu_pos_z) = self.imu_dimensions_xyz__
         (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
-        self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
-        self.tf_static_broadcaster = StaticTransformBroadcaster(
-            self, self.qos_profile_tf_static_
-        )
-        self.imu_tf = TransformStamped()
-        self.odom_tf = TransformStamped()
+        # self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        # self.tf_static_broadcaster = StaticTransformBroadcaster(
+        #     self, self.qos_profile_tf_static_
+        # )
+        # self.imu_tf = TransformStamped()
+        # self.odom_tf = TransformStamped()
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -277,6 +310,7 @@ class ControllerServer(LifecycleNode):
             self.uros_encoder_subscription,
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
+            # event_callbacks=self.encoder_sub_event_callback_,
         )
         self.uros_lidar_subscriber = self.create_subscription(
             LaserScan,
@@ -284,6 +318,7 @@ class ControllerServer(LifecycleNode):
             self.uros_laser_subscription,
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
+            # event_callbacks=self.lidar_sub_event_callback_,
         )
         self.uros_imu_subscriber = self.create_subscription(
             Imu,
@@ -291,6 +326,7 @@ class ControllerServer(LifecycleNode):
             self.uros_imu_subscription,
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
+            # event_callbacks=self.imu_sub_event_callback_,
         )
         self.uros_temp_subscriber = self.create_subscription(
             Temperature,
@@ -298,6 +334,7 @@ class ControllerServer(LifecycleNode):
             self.uros_temp_subscription,
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
+            # event_callbacks=self.subs_event_callback_,
         )
         self.uros_bate_subscriber = self.create_subscription(
             BatteryState,
@@ -305,6 +342,7 @@ class ControllerServer(LifecycleNode):
             self.uros_bat_subscription,
             self.qos_profile_micro_,
             callback_group=ReentrantCallbackGroup(),
+            # event_callbacks=self.subs_event_callback_,
         )
 
         self.joint_state_publish_timer = self.create_timer(
@@ -709,6 +747,12 @@ class ControllerServer(LifecycleNode):
             tf_transformations.quaternion_from_euler(ax, ay, az)
         )
         return set_orientation
+
+    # def encoder_deadline_sub_event(self, info):
+    #     self.get_logger().warn(f"Deadline missed! Total count: {info.total_count}")
+
+    # def encoder_liveliness_sub_event(self, info):
+    #     self.get_logger().warn(f"Liveliness lost! Total count: {info.liveliness_lost}")
 
     def set_odom_pkg(
         self,

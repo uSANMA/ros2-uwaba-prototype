@@ -6,7 +6,12 @@ from math import pi
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.qos import QoSProfile
+from rclpy.qos import (
+    QoSProfile,
+    QoSLivelinessPolicy,
+    QoSReliabilityPolicy,
+    QoSHistoryPolicy,
+)
 
 from sensor_msgs.msg import JointState, Imu, LaserScan, Temperature
 from geometry_msgs.msg import TwistStamped
@@ -19,7 +24,10 @@ class UrosEmulator(Node):
         self.get_logger().info("microROS Emulator has started.")
 
         self.qos_profile_micro_ = QoSProfile(
-            depth=10, reliability=2, durability=2, liveliness=1
+            depth=10,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=2,
+            liveliness=QoSLivelinessPolicy.AUTOMATIC,
         )
 
         self.encoder_publish_freq_ = 30
