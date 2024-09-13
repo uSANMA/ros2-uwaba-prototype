@@ -12,8 +12,7 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>tf2_ros_py</depend>
-  <depend>python3-numpy</depend>
-
+  
   <!-- microROS dependencies -->
   <depend>micro_ros_agent</depend>
 
@@ -26,18 +25,16 @@
   <exec_depend>navigation2</exec_depend>
   <exec_depend>nav2_common</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
-  <exec_depend>turtlebot3_gazebo</exec_depend>
-
+  <exec_depend>nav2_bringup</exec_depend>
+  
   <!-- Robot Localization Dependencies -->
   <exec_depend>robot_localization</exec_depend>
-
-  <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>nav2_common</build_depend>
-
   <build_depend>navigation2</build_depend>
   <build_depend>launch_ros</build_depend>
-
+  
   <!-- uWABA dependecies -->
+  <exec_depend>python3-numpy</exec_depend>
   <exec_depend>uwaba_prototype_interfaces</exec_depend>
   <exec_depend>uwaba_prototype_description</exec_depend>
 

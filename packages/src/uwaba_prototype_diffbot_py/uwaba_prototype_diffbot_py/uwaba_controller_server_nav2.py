@@ -265,7 +265,7 @@ class ControllerServer(LifecycleNode):
         # self.starting_time_ = self.get_clock().now()
 
         self.cmd_vel_subscriber = self.create_subscription(
-            TwistStamped,
+            Twist,
             f"{self.cmd_vel_topic__}",
             self.cmd_vel_subscription,
             self.qos_profile_,
@@ -544,11 +544,11 @@ class ControllerServer(LifecycleNode):
 
         self.imu_last_time_ = current_time
 
-    def cmd_vel_subscription(self, twist_msgs: TwistStamped):
-        self.cmd_vel_.header.stamp = twist_msgs.header.stamp
-        self.cmd_vel_.header.frame_id = twist_msgs.header.frame_id
-        self.cmd_vel_.twist.linear = twist_msgs.twist.linear
-        self.cmd_vel_.twist.angular = twist_msgs.twist.angular
+    def cmd_vel_subscription(self, twist_msgs: Twist):
+        self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
+        self.cmd_vel_.header.frame_id = "cmd_vel_subs"
+        self.cmd_vel_.twist.linear = twist_msgs.linear
+        self.cmd_vel_.twist.angular = twist_msgs.angular
 
     def uros_encoder_subscription(self, encoder_vels: EncoderMsg):
         if not self.first_encoder_msg_flag_:
