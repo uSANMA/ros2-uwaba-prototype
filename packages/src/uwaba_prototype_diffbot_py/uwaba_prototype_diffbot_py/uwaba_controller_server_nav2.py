@@ -244,12 +244,12 @@ class ControllerServer(LifecycleNode):
         (self.imu_pos_x, self.imu_pos_y, self.imu_pos_z) = self.imu_dimensions_xyz__
         (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
-        # self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        self.odom_tf = TransformStamped()
         # self.tf_static_broadcaster = StaticTransformBroadcaster(
         #     self, self.qos_profile_tf_static_
         # )
         # self.imu_tf = TransformStamped()
-        # self.odom_tf = TransformStamped()
 
         self.orientation = Quaternion()
         self.orientation_imu = Quaternion()
@@ -688,20 +688,20 @@ class ControllerServer(LifecycleNode):
             self.orientation,
         )
         self.odom_publisher_.publish(self.odom_msg)
-        # self.set_state_transform(
-        #     self.odom_frame__,
-        #     self.main_frame__,
-        #     self.get_clock().now().to_msg(),
-        #     self.odom_tf,
-        #     self.x,
-        #     self.y,
-        #     self.z,
-        #     0.0,
-        #     0.0,
-        #     self.th,
-        #     self.orientation,
-        # )
-        # self.tf_broadcaster.sendTransform(self.odom_tf)
+        self.set_state_transform(
+            self.odom_frame__,
+            self.main_frame__,
+            self.get_clock().now().to_msg(),
+            self.odom_tf,
+            self.x,
+            self.y,
+            self.z,
+            0.0,
+            0.0,
+            self.th,
+            self.orientation,
+        )
+        self.tf_broadcaster.sendTransform(self.odom_tf)
 
     def cmd_vel_back(self):
         self.send_cmd_vel_back_.publish(self.cmd_vel_)
