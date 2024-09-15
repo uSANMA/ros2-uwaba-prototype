@@ -1,5 +1,4 @@
-[![Static Badge](https://img.shields.io/badge/version-v0.25.0-green)](https://github.com/uSANMA/ros2-uwaba-prototype)
-[![Version](https://img.shields.io/badge/dynamic/json?label=version&query=%24[0].name&url=https%3A%2F%2Fapi.github.com%2Frepos%2FuSANMA%2Fros2-uwaba-prototype%2Ftags)](https://github.com/uSANMA/ros2-uwaba-prototype)
+[![Version](https://img.shields.io/badge/dynamic/json?label=version&query=%24[0].name&url=https%3A%2F%2Fapi.github.com%2Frepos%2FuSANMA%2Fros2-uwaba-prototype%2Ftags&color=green)](https://github.com/uSANMA/ros2-uwaba-prototype)
 
 # uWABA NAVIGATION AND CONTROLLER SYSTEMS
 This is the workspace related to uWABA's robot prototype ROS 2, Nav2 and ros2_control in Python[^1] systems. Here will be displayed every file and package related to its development.
