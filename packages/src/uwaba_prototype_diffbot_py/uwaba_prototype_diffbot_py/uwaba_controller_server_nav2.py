@@ -496,6 +496,7 @@ class ControllerServer(LifecycleNode):
         self.imu_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.imu_last_time_.sec + (self.imu_last_time_.nanosec / 1e9)
         )
+        self.imu_dt = self.limit_dt(self.imu_dt)
 
         (
             self.imu_msg.angular_velocity.x,
@@ -548,6 +549,7 @@ class ControllerServer(LifecycleNode):
         self.enc_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.encoder_last_time_.sec + (self.encoder_last_time_.nanosec / 1e9)
         )
+        self.enc_dt = self.limit_dt(self.enc_dt)
 
         self.encoder_readings_.encoders = encoder_vels.encoders
         if self.encoder_readings_.encoders:
@@ -572,8 +574,6 @@ class ControllerServer(LifecycleNode):
             self.odom_publish()
 
         self.encoder_last_time_ = current_time
-
-    
 
     def uros_laser_subscription(self, laser_msgs: LaserScan):
         self.scan_msg.header.stamp = self.get_clock().now().to_msg()
@@ -699,6 +699,10 @@ class ControllerServer(LifecycleNode):
         delta_y = vx * sin(self.th) * dt
         delta_th = vth * dt
 
+        delta_x, delta_y, delta_th = self.limit_position_change(
+            delta_x, delta_y, delta_th
+        )
+
         self.x += delta_x
         self.y += delta_y
         self.th += delta_th
@@ -745,11 +749,11 @@ class ControllerServer(LifecycleNode):
 
     # def encoder_liveliness_sub_event(self, info):
     #     self.get_logger().warn(f"Liveliness lost! Total count: {info.liveliness_lost}")
-    
+
     def limit_dt(self, dt):
         # Clamp dt between MIN_DT and MAX_DT
         return max(self.MIN_DT, min(self.MAX_DT, dt))
-    
+
     def limit_velocity_change(self, new_vx, new_vth):
         # Clamp the change in vx
         vx_change = new_vx - self.vx
@@ -762,7 +766,7 @@ class ControllerServer(LifecycleNode):
         if abs(vth_change) > self.MAX_VTH_CHANGE:
             vth_change = self.MAX_VTH_CHANGE if vth_change > 0 else -self.MAX_VTH_CHANGE
         self.vth += vth_change
-    
+
     def limit_position_change(self, delta_x, delta_y, delta_th):
         # Clamp delta_x
         if abs(delta_x) > self.MAX_DELTA_X:
