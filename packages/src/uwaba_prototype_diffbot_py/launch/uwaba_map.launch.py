@@ -47,7 +47,7 @@ def restart_microcontroller(
 
 
 def generate_launch_description():
-    if not restart_microcontroller("http://172.16.14.12/restart.html"):
+    if not restart_microcontroller("http://10.42.0.181/restart.html"):
         rclpy.logging.get_logger("uwaba.launch").error(
             "Starting system in degraded mode..."
         )
@@ -59,9 +59,9 @@ def generate_launch_description():
     default_model_path = join(pkg_share, "urdf/uwaba_prototype.urdf.xacro")
     default_rviz_config_path = PathJoinSubstitution(
         [
-            FindPackageShare("uwaba_prototype_description"),
+            FindPackageShare("uwaba_prototype_diffbot_py"),
             "rviz",
-            "urdf_config_with_laser.rviz",
+            "slam_rviz_config.rviz",
         ]
     )
     ekf_configs_path = PathJoinSubstitution(
@@ -115,7 +115,7 @@ def generate_launch_description():
         package="joint_state_publisher",
         executable="joint_state_publisher",
         name="joint_state_publisher",
-        parameters=[{"rate": 30}, {"source_list": ["new_joint_states"]}],
+        parameters=[{"rate": 10}, {"source_list": ["new_joint_states"]}],
     )
     rviz_node = Node(
         package="rviz2",
@@ -141,7 +141,6 @@ def generate_launch_description():
         ),
         launch_arguments={
             "params_file": nav2_params_path,
-            # "map": map_file_path,
         }.items(),
     )
 
@@ -152,17 +151,8 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            "params_file": slam_online_async_config,
-            # "map": map_file_path,
+            "slam_params_file": slam_online_async_config,
         }.items(),
-    )
-
-    map_frame = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        name="map_odom_static_broadcaster",
-        arguments=["0", "0", "0", "0", "0", "0", "1", "map", "odom"],
-        output="screen",
     )
 
     # Timer actions for delaying launch process
@@ -173,16 +163,19 @@ def generate_launch_description():
             client_node,
             robot_state_publisher_node,
             joint_state_publisher_node,
-            # robot_localization_node,
-            map_frame,
+            robot_localization_node,
         ],
     )
 
     # Only start nav2 when server_node starts
     delay_nav2 = RegisterEventHandler(
         OnProcessStart(
-            target_action=server_node,
-            on_start=[nav2_navigation_launch, slam_launch, rviz_node],
+            target_action=robot_localization_node,
+            on_start=[
+                nav2_navigation_launch,
+                slam_launch,
+                rviz_node,
+            ],
         )
     )
 

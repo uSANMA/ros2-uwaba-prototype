@@ -8,6 +8,7 @@ from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     ExecuteProcess,
+    TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.event_handlers import OnProcessExit
@@ -17,6 +18,7 @@ from os.path import join
 from os import environ
 from ament_index_python.packages import get_package_share_directory
 import rclpy.logging
+
 
 def restart_microcontroller(
     url, retries=5, timeout=0.2, retry_delay=5.0, sleep=3.0
@@ -45,10 +47,10 @@ def restart_microcontroller(
 
 
 def generate_launch_description():
-    # if not restart_microcontroller("http://172.16.14.12/restart.html"):
-    #     rclpy.logging.get_logger("uwaba.launch").error(
-    #         "Starting system in degraded mode..."
-    #     )
+    if not restart_microcontroller("http://10.42.0.181/restart.html"):
+        rclpy.logging.get_logger("uwaba.launch").error(
+            "Starting system in degraded mode..."
+        )
     # micro_ros_agent_path = join(environ['HOME'], 'Micro-XRCE-DDS-Agent/build/MicroXRCEAgent')
     pkg_share = FindPackageShare(package="uwaba_prototype_description").find(
         "uwaba_prototype_description"
@@ -64,7 +66,9 @@ def generate_launch_description():
         [FindPackageShare("uwaba_prototype_diffbot_py"), "params", "params.yaml"]
     )
 
-    agent_node = ExecuteProcess(cmd=["MicroXRCEAgent", "udp4", "-p", "8888", "-v4"], output="screen")
+    agent_node = ExecuteProcess(
+        cmd=["MicroXRCEAgent", "udp4", "-p", "8888", "-v4"], output="screen"
+    )
 
     client_node = Node(
         package="uwaba_prototype_diffbot_py",
@@ -111,6 +115,18 @@ def generate_launch_description():
         parameters=[ekf_configs_path],
     )
 
+    delay_for_agent = TimerAction(
+        period=7.0,
+        actions=[
+            server_node,
+            client_node,
+            robot_state_publisher_node,
+            joint_state_publisher_node,
+            robot_localization_node,
+            rviz_node,
+        ],
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -124,11 +140,6 @@ def generate_launch_description():
                 description="Absolute path to rviz config file",
             ),
             agent_node,
-            server_node,
-            client_node,
-            robot_state_publisher_node,
-            joint_state_publisher_node,
-            robot_localization_node,
-            rviz_node,
+            delay_for_agent,
         ]
     )

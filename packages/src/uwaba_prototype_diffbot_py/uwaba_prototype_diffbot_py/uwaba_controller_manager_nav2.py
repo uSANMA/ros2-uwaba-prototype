@@ -130,12 +130,12 @@ class ControllerManager(Node):
             self.change_state(self.transition_)
             self.get_logger().info("Activating OK, now state set as active.")
             self.get_logger().info("\033[90;1m Node Test Timer Has Started\033[0m")
-            self.microros_checker_timer = self.create_timer(
-                (self.microros_checker_rate__),
-                self.micro_ros_checker,
-                callback_group=ReentrantCallbackGroup(),
-            )
-            self.activated_uros_checker_ = True
+            # self.microros_checker_timer = self.create_timer(
+            #     (self.microros_checker_rate__),
+            #     self.micro_ros_checker,
+            #     callback_group=ReentrantCallbackGroup(),
+            # )
+            # self.activated_uros_checker_ = True
         else:
             self.get_logger().warn(
                 "Server not in a state to be set as ACTIVE, now trying to deactivate it..."
@@ -205,11 +205,11 @@ class ControllerManager(Node):
             self.get_logger().info(
                 "\033[91;1m Node Test Timer Has Been Destroyed\033[0m"
             )
-            if self.activated_uros_checker_:
-                self.microros_checker_timer.destroy()
+            # if self.activated_uros_checker_:
+            #     self.microros_checker_timer.destroy()
         else:
-            if self.activated_uros_checker_:
-                self.microros_checker_timer.destroy()
+            # if self.activated_uros_checker_:
+            #     self.microros_checker_timer.destroy()
             self.get_logger().warn("Server not in a state to be deactivated")
 
     def get_state_service(self):

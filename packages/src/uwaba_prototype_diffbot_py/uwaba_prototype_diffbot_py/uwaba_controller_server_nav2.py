@@ -5,7 +5,7 @@ import threading
 import rclpy.node
 import tf_transformations
 import numpy as np
-from math import sin, cos, pi, atan2, sqrt
+from math import sin, cos, pi, atan2, sqrt, fmod
 
 from rclpy.lifecycle import LifecycleNode
 from rclpy.lifecycle.node import LifecycleState, TransitionCallbackReturn
@@ -40,19 +40,14 @@ class ControllerServer(LifecycleNode):
         self.lf_node_name_ = "uwaba_controller_server_node"
         super().__init__(f"{self.lf_node_name_}")
         # Constructor parameters
+
+        self.count___ = 0
+
         self.qos_profile_micro_ = QoSProfile(
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=10,
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             durability=QoSDurabilityPolicy.VOLATILE,
-            liveliness=QoSLivelinessPolicy.AUTOMATIC,
-        )
-
-        self.qos_profile_tf_static_ = QoSProfile(
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10,
-            reliability=QoSReliabilityPolicy.SYSTEM_DEFAULT,
-            durability=QoSDurabilityPolicy.SYSTEM_DEFAULT,
             liveliness=QoSLivelinessPolicy.AUTOMATIC,
         )
 
@@ -74,7 +69,7 @@ class ControllerServer(LifecycleNode):
         self.server_activated_ = False
         self.goal_handle_: ServerGoalHandle = None
         self.goal_lock_ = threading.Lock()
-        self.timing_lock_ = threading.Lock()
+        self.lock_ = threading.Lock()
         self.got_timing_ = False
         self.msgs_began_ = False
         self.got_twist_package_ = False
@@ -87,8 +82,6 @@ class ControllerServer(LifecycleNode):
         self.cmd_stop_flag_ = False
         self.first_encoder_msg_flag_ = False
         self.first_imu_msg_flag_ = False
-        self.encoder_last_time_ = self.get_clock().now().to_msg()
-        self.imu_last_time_ = self.get_clock().now().to_msg()
 
         self.declare_parameter("wheels_separation", 0.0)
         self.wheels_separation__ = self.get_parameter("wheels_separation").value
@@ -100,14 +93,6 @@ class ControllerServer(LifecycleNode):
         self.base_width__ = self.get_parameter("base_width").value
         self.declare_parameter("base_height", 0.0)
         self.base_height__ = self.get_parameter("base_height").value
-        self.declare_parameter("transform_broadcast_rate", 1.0)
-        self.transform_broadcast_rate__ = self.get_parameter(
-            "transform_broadcast_rate"
-        ).value
-        self.declare_parameter("joint_state_rate", 1.0)
-        self.joint_state_rate__ = self.get_parameter("joint_state_rate").value
-        self.declare_parameter("odom_rate", 1.0)
-        self.odom_rate__ = self.get_parameter("odom_rate").value
         self.declare_parameter("lidar_frame", "laser_frame")
         self.lidar_frame__ = self.get_parameter("lidar_frame").value
         self.declare_parameter("main_frame", "base_footprint")
@@ -123,8 +108,6 @@ class ControllerServer(LifecycleNode):
         self.declare_parameter("battery_frame", "bat_frame")
         self.battery_frame__ = self.get_parameter("battery_frame").value
 
-        self.declare_parameter("cmd_vel_back", 1.0)
-        self.cmd_vel_back_rate__ = self.get_parameter("cmd_vel_back").value
         self.declare_parameter("uros_encoder_topic", "micro_encoders")
         self.uros_encoder_topic__ = self.get_parameter("uros_encoder_topic").value
         self.declare_parameter("uros_imu_topic", "micro_imu")
@@ -143,7 +126,7 @@ class ControllerServer(LifecycleNode):
         self.joint_state_topic__ = self.get_parameter("joint_states_topic").value
         self.declare_parameter("cmd_vel_topic", "cmd_vel")
         self.cmd_vel_topic__ = self.get_parameter("cmd_vel_topic").value
-        self.declare_parameter("imu_topic", "cmd_vel")
+        self.declare_parameter("imu_topic", "imu")
         self.imu_topic__ = self.get_parameter("imu_topic").value
         self.declare_parameter("scan_topic", "scan")
         self.scan_topic__ = self.get_parameter("scan_topic").value
@@ -157,6 +140,18 @@ class ControllerServer(LifecycleNode):
         self.imu_dimensions_xyz__ = self.get_parameter("imu_dimensions_xyz").value
         self.declare_parameter("imu_rotation_rpy", [0.0, 0.0, 0.0])
         self.imu_rotation_rpy__ = self.get_parameter("imu_rotation_rpy").value
+        # Create param for this one too (but before check if it is viable)
+        self.main_execution_rate__ = 100.0
+        self.declare_parameter("max_vx_change", 1.0)
+        self.max_vx_change__ = self.get_parameter("max_vx_change").value
+        self.declare_parameter("max_vth_change", 1.8)
+        self.max_vth_change__ = self.get_parameter("max_vth_change").value
+        self.declare_parameter("max_deltas_xyth", [0.2, 0.2, 0.2])
+        self.max_deltas_xyth__ = self.get_parameter("max_deltas_xyth").value
+        self.declare_parameter("min_dt", 0.01)
+        self.min_dt__ = self.get_parameter("min_dt").value
+        self.declare_parameter("max_dt", 0.04)
+        self.max_dt__ = self.get_parameter("max_dt").value
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         self.get_logger().info(
@@ -215,6 +210,11 @@ class ControllerServer(LifecycleNode):
         )
 
         # Odometry starting point
+        self.MAX_VX_CHANGE = self.max_vx_change__
+        self.MAX_VTH_CHANGE = self.max_vth_change__
+        (self.MAX_DELTA_X, self.MAX_DELTA_Y, self.MAX_DELTA_TH) = self.max_deltas_xyth__
+        self.MIN_DT = self.min_dt__
+        self.MAX_DT = self.max_dt__
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
@@ -244,25 +244,16 @@ class ControllerServer(LifecycleNode):
         (self.imu_pos_x, self.imu_pos_y, self.imu_pos_z) = self.imu_dimensions_xyz__
         (self.imu_ori_r, self.imu_ori_p, self.imu_ori_y) = self.imu_rotation_rpy__
 
-        self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
-        self.odom_tf = TransformStamped()
+        # self.tf_broadcaster = TransformBroadcaster(self, self.qos_profile_)
+        # self.odom_tf = TransformStamped()
+        # self.imu_tf = TransformStamped()
+        # self.imu_odom_tf = TransformStamped()
         # self.tf_static_broadcaster = StaticTransformBroadcaster(
         #     self, self.qos_profile_tf_static_
         # )
-        # self.imu_tf = TransformStamped()
-
-        self.orientation = Quaternion()
-        self.orientation_imu = Quaternion()
-
-        self.angular_velocity = Vector3()
-
-        self.linear_acceleration = Vector3()
 
         self.cmd_vel_ = TwistStamped()
-        self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
-        self.cmd_vel_.header.frame_id = ""
-        self.cmd_vel_.twist.linear = Twist().linear
-        self.cmd_vel_.twist.angular = Twist().angular
+        self.cmd_vel_.header.frame_id = "cmd_vel_to_microros"
 
         self.encoder_readings_ = EncoderMsg()
 
@@ -295,8 +286,6 @@ class ControllerServer(LifecycleNode):
             "Server on activate. Now creating subscribers and publishers' timer callbacks..."
         )
 
-        # self.starting_time_ = self.get_clock().now()
-
         self.cmd_vel_subscriber = self.create_subscription(
             Twist,
             f"{self.cmd_vel_topic__}",
@@ -328,43 +317,28 @@ class ControllerServer(LifecycleNode):
             callback_group=ReentrantCallbackGroup(),
             # event_callbacks=self.imu_sub_event_callback_,
         )
-        self.uros_temp_subscriber = self.create_subscription(
-            Temperature,
-            f"{self.uros_temperature_topic__}",
-            self.uros_temp_subscription,
-            self.qos_profile_micro_,
-            callback_group=ReentrantCallbackGroup(),
-            # event_callbacks=self.subs_event_callback_,
-        )
-        self.uros_bate_subscriber = self.create_subscription(
-            BatteryState,
-            f"{self.uros_battery_topic__}",
-            self.uros_bat_subscription,
-            self.qos_profile_micro_,
-            callback_group=ReentrantCallbackGroup(),
-            # event_callbacks=self.subs_event_callback_,
-        )
+        # self.uros_temp_subscriber = self.create_subscription(
+        #     Temperature,
+        #     f"{self.uros_temperature_topic__}",
+        #     self.uros_temp_subscription,
+        #     self.qos_profile_micro_,
+        #     callback_group=ReentrantCallbackGroup(),
+        #     # event_callbacks=self.subs_event_callback_,
+        # )
+        # self.uros_bate_subscriber = self.create_subscription(
+        #     BatteryState,
+        #     f"{self.uros_battery_topic__}",
+        #     self.uros_bat_subscription,
+        #     self.qos_profile_micro_,
+        #     callback_group=ReentrantCallbackGroup(),
+        #     # event_callbacks=self.subs_event_callback_,
+        # )
 
-        self.joint_state_publish_timer = self.create_timer(
-            (1.0 / self.joint_state_rate__),
-            self.joint_state_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
-        self.odom_publish_timer = self.create_timer(
-            (1.0 / self.odom_rate__),
-            self.odom_publish,
-            callback_group=ReentrantCallbackGroup(),
-        )
-        self.cmd_vel_back_timer = self.create_timer(
-            (1.0 / self.cmd_vel_back_rate__),
-            self.cmd_vel_back,
-            callback_group=ReentrantCallbackGroup(),
-        )
-        self.main_execution_timer = self.create_timer(
-            (1.0 / 35.0),
-            self.main_execution,
-            callback_group=ReentrantCallbackGroup(),
-        )
+        # self.dt_filter_timer = self.create_timer(
+        #     (1.0 / self.main_execution_rate__),
+        #     self.dt_filter,
+        #     callback_group=ReentrantCallbackGroup(),
+        # )
 
         self.server_activated_ = True
         return super().on_activate(state)
@@ -390,9 +364,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.joint_state_publish_timer.destroy()
-        self.odom_publish_timer.destroy()
-        # self.agent_checker_timer.destroy()
+        # self.dt_filter_timer.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -408,9 +380,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.joint_state_publish_timer.destroy()
-        self.odom_publish_timer.destroy()
-        # self.agent_checker_timer.destroy()
+        # self.dt_filter_timer.destroy()
         return TransitionCallbackReturn.SUCCESS
 
     def on_error(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -426,9 +396,7 @@ class ControllerServer(LifecycleNode):
         self.destroy_subscription(self.uros_lidar_subscriber)
         self.destroy_subscription(self.uros_imu_subscriber)
         self.destroy_subscription(self.uros_temp_subscriber)
-        self.joint_state_publish_timer.destroy()
-        self.odom_publish_timer.destroy()
-        # self.agent_checker_timer.destroy()
+        # self.dt_filter_timer.destroy()
         return super().on_error(state)
 
     def goal_callback(self, goal_request: ControlActions.Goal) -> GoalResponse:
@@ -511,17 +479,17 @@ class ControllerServer(LifecycleNode):
             goal_handle.abort()
             return result
 
-    def main_execution(self):
-        if 0.030 > self.imu_dt > 0.032:
+    def dt_filter(self):
+        if 0.030 > self.imu_dt > 0.040:
             self.first_imu_msg_flag_ = False
-            self.get_logger().info("Imu flag was set!")
-        if 0.030 > self.enc_dt > 0.032:
+            self.get_logger().info("\033[1;31;40mImu dt flag was set!\033[0m")
+        if 0.030 > self.enc_dt > 0.040:
             self.first_encoder_msg_flag_ = False
-            self.get_logger().info("Encoder flag was set!")
+            self.get_logger().info("\033[1;31;40mEncoder dt flag was set!\033[0m")
 
     def uros_imu_subscription(self, imu_msgs: Imu):
         if not self.first_imu_msg_flag_:
-            self.encoder_last_time_ = imu_msgs.header.stamp
+            self.imu_last_time_ = imu_msgs.header.stamp
             self.first_imu_msg_flag_ = True
         self.imu_msg.header.stamp = imu_msgs.header.stamp
         current_time = self.imu_msg.header.stamp
@@ -547,81 +515,68 @@ class ControllerServer(LifecycleNode):
             imu_msgs.linear_acceleration.y,
             imu_msgs.linear_acceleration.z,
         )
-        # self.ori_calc_comp_filter(
-        #     self.alpha,
-        #     dt,
-        #     self.imu_msg.angular_velocity.x,
-        #     self.imu_msg.angular_velocity.y,
-        #     self.imu_msg.angular_velocity.z,
-        #     self.imu_msg.linear_acceleration.x,
-        #     self.imu_msg.linear_acceleration.y,
-        #     self.imu_msg.linear_acceleration.z,
-        # )
-        self.ori_calc_simple(
+
+        self.imu_msg.orientation = self.ori_calc_comp_filter(
+            self.alpha,
             self.imu_dt,
             self.imu_msg.angular_velocity.x,
             self.imu_msg.angular_velocity.y,
             self.imu_msg.angular_velocity.z,
+            self.imu_msg.linear_acceleration.x,
+            self.imu_msg.linear_acceleration.y,
+            self.imu_msg.linear_acceleration.z,
         )
-        # self.set_state_transform(
-        #     self.robot_base_frame__,
-        #     self.imu_frame__,
-        #     self.get_clock().now().to_msg(),
-        #     self.imu_tf,
-        #     self.imu_pos_x,
-        #     self.imu_pos_y,
-        #     self.imu_pos_z,
-        #     self.roll,
-        #     self.pitch,
-        #     self.yaw,
-        #     self.orientation_imu,
+
+        # self.imu_msg.orientation = self.ori_calc_simple(
+        #     self.imu_dt,
+        #     self.imu_msg.angular_velocity.x,
+        #     self.imu_msg.angular_velocity.y,
+        #     self.imu_msg.angular_velocity.z,
         # )
-        # self.tf_static_broadcaster.sendTransform(self.imu_tf)
-        self.imu_msg.orientation = self.orientation_imu
+
         self.imu_publisher_.publish(self.imu_msg)
+        # self.imu_tf_publish()
 
         self.imu_last_time_ = current_time
-
-    def cmd_vel_subscription(self, twist_msgs: Twist):
-        self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
-        self.cmd_vel_.header.frame_id = "cmd_vel_subs"
-        self.cmd_vel_.twist.linear = twist_msgs.linear
-        self.cmd_vel_.twist.angular = twist_msgs.angular
 
     def uros_encoder_subscription(self, encoder_vels: EncoderMsg):
         if not self.first_encoder_msg_flag_:
             self.encoder_last_time_ = encoder_vels.header.stamp
             self.first_encoder_msg_flag_ = True
         self.encoder_readings_.header.stamp = encoder_vels.header.stamp
-        self.encoder_readings_.encoders = encoder_vels.encoders
         current_time = self.encoder_readings_.header.stamp
         self.enc_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.encoder_last_time_.sec + (self.encoder_last_time_.nanosec / 1e9)
         )
 
-        if encoder_vels.encoders:
+        self.encoder_readings_.encoders = encoder_vels.encoders
+        if self.encoder_readings_.encoders:
             self.left_encoder, self.right_encoder = self.encoder_readings_.encoders
 
-            self.vx = (self.left_encoder + self.right_encoder) / 2.0
-            self.vth = (
+            new_vx = (self.left_encoder + self.right_encoder) / 2.0
+            new_vth = (
                 self.left_encoder - self.right_encoder
             ) / self.wheels_separation__
 
+            self.limit_velocity_change(new_vx, new_vth)
+
             self.pos_calc(self.enc_dt, self.vx, self.vth)
-            self.quad_calc(self.orientation, self.th)
 
             self.left_wheel_pos_ += self.left_encoder
             self.right_wheel_pos_ += self.right_encoder
 
-            if abs(self.left_wheel_pos_) >= (2.0 * pi):
-                self.left_wheel_pos_ = 0.0
-            if abs(self.right_wheel_pos_) >= (2.0 * pi):
-                self.right_wheel_pos_ = 0.0
+            self.left_wheel_pos_ = fmod(self.left_wheel_pos_, (2.0 * pi))
+            self.right_wheel_pos_ = fmod(self.right_wheel_pos_, (2.0 * pi))
+
+            self.joint_state_publish()
+            self.odom_publish()
 
         self.encoder_last_time_ = current_time
 
+    
+
     def uros_laser_subscription(self, laser_msgs: LaserScan):
-        self.scan_msg.header.stamp = laser_msgs.header.stamp
+        self.scan_msg.header.stamp = self.get_clock().now().to_msg()
         self.scan_msg.angle_min = laser_msgs.angle_min
         self.scan_msg.angle_max = laser_msgs.angle_max
         self.scan_msg.angle_increment = laser_msgs.angle_increment
@@ -633,31 +588,37 @@ class ControllerServer(LifecycleNode):
         self.scan_msg.intensities = laser_msgs.intensities
         self.scan_publisher_.publish(self.scan_msg)
 
-    def uros_temp_subscription(self, temp_msgs: Temperature):
-        self.temp_msg.header.stamp = temp_msgs.header.stamp
-        self.temp_msg.temperature = temp_msgs.temperature
-        self.temp_msg.variance = temp_msgs.variance
-        self.temperature_publisher_.publish(self.temp_msg)
+    # def uros_temp_subscription(self, temp_msgs: Temperature):
+    #     self.temp_msg.header.stamp = temp_msgs.header.stamp
+    #     self.temp_msg.temperature = temp_msgs.temperature
+    #     self.temp_msg.variance = temp_msgs.variance
+    #     self.temperature_publisher_.publish(self.temp_msg)
 
-    def uros_bat_subscription(self, bat_msgs: BatteryState):
-        # self.bat_msg.header.stamp = bat_msgs.header.stamp
-        # self.bat_msg.voltage = bat_msgs.voltage
-        # self.bat_msg.temperature = bat_msgs.temperature
-        # self.bat_msg.current = bat_msgs.current
-        # self.bat_msg.charge = bat_msgs.charge
-        # self.bat_msg.capacity = bat_msgs.capacity
-        # self.bat_msg.design_capacity = bat_msgs.design_capacity
-        # self.bat_msg.percentage = bat_msgs.percentage
-        # self.bat_msg.power_supply_status = bat_msgs.power_supply_status
-        # self.bat_msg.power_supply_health = bat_msgs.power_supply_health
-        # self.bat_msg.power_supply_technology = bat_msgs.power_supply_technology
-        # self.bat_msg.present = bat_msgs.present
-        # self.bat_msg.cell_voltage = bat_msgs.cell_voltage
-        # self.bat_msg.cell_temperature = bat_msgs.temperature
-        # self.bat_msg.location = bat_msgs.location
-        # self.bat_msg.serial_number = bat_msgs.serial_number
-        # self.battery_pack_publisher_.publish(self.bat_msg)
-        pass
+    # def uros_bat_subscription(self, bat_msgs: BatteryState):
+    #     # self.bat_msg.header.stamp = bat_msgs.header.stamp
+    #     # self.bat_msg.voltage = bat_msgs.voltage
+    #     # self.bat_msg.temperature = bat_msgs.temperature
+    #     # self.bat_msg.current = bat_msgs.current
+    #     # self.bat_msg.charge = bat_msgs.charge
+    #     # self.bat_msg.capacity = bat_msgs.capacity
+    #     # self.bat_msg.design_capacity = bat_msgs.design_capacity
+    #     # self.bat_msg.percentage = bat_msgs.percentage
+    #     # self.bat_msg.power_supply_status = bat_msgs.power_supply_status
+    #     # self.bat_msg.power_supply_health = bat_msgs.power_supply_health
+    #     # self.bat_msg.power_supply_technology = bat_msgs.power_supply_technology
+    #     # self.bat_msg.present = bat_msgs.present
+    #     # self.bat_msg.cell_voltage = bat_msgs.cell_voltage
+    #     # self.bat_msg.cell_temperature = bat_msgs.temperature
+    #     # self.bat_msg.location = bat_msgs.location
+    #     # self.bat_msg.serial_number = bat_msgs.serial_number
+    #     # self.battery_pack_publisher_.publish(self.bat_msg)
+    #     pass
+
+    def cmd_vel_subscription(self, twist_msgs: Twist):
+        self.cmd_vel_.header.stamp = self.get_clock().now().to_msg()
+        self.cmd_vel_.twist.linear = twist_msgs.linear
+        self.cmd_vel_.twist.angular = twist_msgs.angular
+        self.send_cmd_vel_back_.publish(self.cmd_vel_)
 
     def joint_state_publish(self):
         self.set_joint_state_pkg(
@@ -670,6 +631,34 @@ class ControllerServer(LifecycleNode):
         )
         self.joint_state_publisher_.publish(self.joint_state)
 
+    # def imu_tf_publish(self):
+    #     self.set_state_transform(
+    #         self.robot_base_frame__,
+    #         self.imu_frame__,
+    #         self.get_clock().now().to_msg(),
+    #         self.imu_tf,
+    #         self.imu_pos_x,
+    #         self.imu_pos_y,
+    #         self.imu_pos_z,
+    #         self.imu_ori_r,
+    #         self.imu_ori_p,
+    #         self.imu_ori_y,
+    #     )
+    #     self.tf_broadcaster.sendTransform(self.imu_tf)
+    #     self.set_state_transform(
+    #         self.odom_frame__,
+    #         self.imu_frame__,
+    #         self.get_clock().now().to_msg(),
+    #         self.imu_odom_tf,
+    #         self.imu_pos_x,
+    #         self.imu_pos_y,
+    #         self.imu_pos_z,
+    #         self.roll,
+    #         self.pitch,
+    #         self.yaw,
+    #     )
+    #     self.tf_broadcaster.sendTransform(self.imu_odom_tf)
+
     def odom_publish(self):
         self.set_odom_pkg(
             self.get_clock().now().to_msg(),
@@ -681,34 +670,31 @@ class ControllerServer(LifecycleNode):
             self.z,
             self.vx,
             0.0,
+            0.0,
+            0.0,
+            0.0,
             self.vth,
             0.0,
             0.0,
             self.th,
-            self.orientation,
         )
         self.odom_publisher_.publish(self.odom_msg)
-        self.set_state_transform(
-            self.odom_frame__,
-            self.main_frame__,
-            self.get_clock().now().to_msg(),
-            self.odom_tf,
-            self.x,
-            self.y,
-            self.z,
-            0.0,
-            0.0,
-            self.th,
-            self.orientation,
-        )
-        self.tf_broadcaster.sendTransform(self.odom_tf)
+        # self.set_state_transform(
+        #     self.odom_frame__,
+        #     self.main_frame__,
+        #     current_time,
+        #     self.odom_tf,
+        #     self.x,
+        #     self.y,
+        #     self.z,
+        #     0.0,
+        #     0.0,
+        #     self.th,
+        # )
+        # self.tf_broadcaster.sendTransform(self.odom_tf)
 
-    def cmd_vel_back(self):
-        self.send_cmd_vel_back_.publish(self.cmd_vel_)
-
-    def pos_calc(self, dt, vx, vth, vy=0.0):
-        # For differential bots the lateral velocity is zero, so vy = 0.0
-        ## This is a transformation matrix so we can exchange info between fixed and moving references
+    def pos_calc(self, dt, vx, vth):
+        # This is a transformation matrix so we can exchange info between fixed and moving references
         delta_x = vx * cos(self.th) * dt
         delta_y = vx * sin(self.th) * dt
         delta_th = vth * dt
@@ -717,7 +703,9 @@ class ControllerServer(LifecycleNode):
         self.y += delta_y
         self.th += delta_th
 
-    def ori_calc_comp_filter(self, alpha, dt, gyro_x, gyro_y, gyro_z, ax, ay, az):
+    def ori_calc_comp_filter(
+        self, alpha, dt, gyro_x, gyro_y, gyro_z, ax, ay, az
+    ) -> Quaternion:
         roll_gyro = self.roll + gyro_x * dt
         pitch_gyro = self.pitch + gyro_y * dt
         yaw_gyro = self.yaw + gyro_z * dt
@@ -729,30 +717,66 @@ class ControllerServer(LifecycleNode):
         self.pitch = alpha * pitch_gyro + (1 - alpha) * pitch_accel
         self.yaw = yaw_gyro
 
-        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
+        return self.quad_calc(self.roll, self.pitch, self.yaw)
 
-    def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z):
+    def ori_calc_simple(self, dt, gyro_x, gyro_y, gyro_z) -> Quaternion:
         self.roll += gyro_x * dt
         self.pitch += gyro_y * dt
         self.yaw += gyro_z * dt
 
-        self.quad_calc(self.orientation_imu, self.yaw, self.roll, self.pitch)
+        return self.quad_calc(self.roll, self.pitch, self.yaw)
 
     # This is an array filler for covariances
     def null_cov_n(self, n=0.0, value=-1.0):
         return np.full((n,), value)
 
-    def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
-        set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
-            tf_transformations.quaternion_from_euler(ax, ay, az)
-        )
-        return set_orientation
+    # def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
+    #     set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
+    #         tf_transformations.quaternion_from_euler(ax, ay, az)
+    #     )
+    #     return set_orientation
+
+    def quad_calc(self, roll=0.0, pitch=0.0, yaw=0.0) -> Quaternion:
+        x, y, z, w = tf_transformations.quaternion_from_euler(roll, pitch, yaw)
+        return Quaternion(x=x, y=y, z=z, w=w)
 
     # def encoder_deadline_sub_event(self, info):
     #     self.get_logger().warn(f"Deadline missed! Total count: {info.total_count}")
 
     # def encoder_liveliness_sub_event(self, info):
     #     self.get_logger().warn(f"Liveliness lost! Total count: {info.liveliness_lost}")
+    
+    def limit_dt(self, dt):
+        # Clamp dt between MIN_DT and MAX_DT
+        return max(self.MIN_DT, min(self.MAX_DT, dt))
+    
+    def limit_velocity_change(self, new_vx, new_vth):
+        # Clamp the change in vx
+        vx_change = new_vx - self.vx
+        if abs(vx_change) > self.MAX_VX_CHANGE:
+            vx_change = self.MAX_VX_CHANGE if vx_change > 0 else -self.MAX_VX_CHANGE
+        self.vx += vx_change
+
+        # Clamp the change in vth
+        vth_change = new_vth - self.vth
+        if abs(vth_change) > self.MAX_VTH_CHANGE:
+            vth_change = self.MAX_VTH_CHANGE if vth_change > 0 else -self.MAX_VTH_CHANGE
+        self.vth += vth_change
+    
+    def limit_position_change(self, delta_x, delta_y, delta_th):
+        # Clamp delta_x
+        if abs(delta_x) > self.MAX_DELTA_X:
+            delta_x = self.MAX_DELTA_X if delta_x > 0 else -self.MAX_DELTA_X
+
+        # Clamp delta_y
+        if abs(delta_y) > self.MAX_DELTA_Y:
+            delta_y = self.MAX_DELTA_Y if delta_y > 0 else -self.MAX_DELTA_Y
+
+        # Clamp delta_th
+        if abs(delta_th) > self.MAX_DELTA_TH:
+            delta_th = self.MAX_DELTA_TH if delta_th > 0 else -self.MAX_DELTA_TH
+
+        return delta_x, delta_y, delta_th
 
     def set_odom_pkg(
         self,
@@ -769,7 +793,9 @@ class ControllerServer(LifecycleNode):
         ax: float,
         ay: float,
         az: float,
-        set_orientation: Quaternion,
+        roll: float,
+        pitch: float,
+        yaw: float,
     ) -> Odometry:
         set_odom_msg.header.stamp = current_time
         set_odom_msg.header.frame_id = frame_id
@@ -783,8 +809,7 @@ class ControllerServer(LifecycleNode):
         set_odom_msg.twist.twist.angular.x = ax
         set_odom_msg.twist.twist.angular.y = ay
         set_odom_msg.twist.twist.angular.z = az
-        set_odom_msg.pose.pose.orientation = self.quad_calc(set_orientation, az)
-        return set_odom_msg
+        set_odom_msg.pose.pose.orientation = self.quad_calc(roll, pitch, yaw)
 
     def set_joint_state_pkg(
         self,
@@ -813,7 +838,6 @@ class ControllerServer(LifecycleNode):
         roll,
         pitch,
         yaw,
-        set_orientation: Quaternion,
     ):
         set_tf.header.stamp = current_time
         set_tf.header.frame_id = frame_id
@@ -822,7 +846,7 @@ class ControllerServer(LifecycleNode):
         set_tf.transform.translation.x = pos_x
         set_tf.transform.translation.y = pos_y
         set_tf.transform.translation.z = pos_z
-        set_tf.transform.rotation = self.quad_calc(set_orientation, yaw, roll, pitch)
+        set_tf.transform.rotation = self.quad_calc(roll, pitch, yaw)
 
 
 def main(args=None):

@@ -16,7 +16,7 @@ amcl:
     laser_max_range: 6.0
     laser_min_range: 0.15
     laser_model_type: "likelihood_field"
-    max_beams: 180
+    max_beams: 360
     max_particles: 2000
     min_particles: 500
     odom_frame_id: "odom"
@@ -47,7 +47,7 @@ bt_navigator:
   ros__parameters:
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /odom
+    odom_topic: /odometry/filtered
     transform_tolerance: 0.1
     bt_loop_duration: 10
     default_server_timeout: 20
@@ -284,7 +284,7 @@ map_server:
   ros__parameters:
     # Overridden in launch by the "map" launch configuration or provided default value.
     # To use in yaml, remove the default "map" value in the tb3_simulation_launch.py file & provide full path to map below.
-    yaml_filename: "mapa0.yaml"
+    # yaml_filename: ""
     topic_name: "map"
     frame_id: "map"
 
@@ -299,6 +299,7 @@ planner_server:
   ros__parameters:
     expected_planner_frequency: 20.0
     planner_plugins: ["GridBased"]
+    costmap_update_timeout: 1.0
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
@@ -347,6 +348,7 @@ waypoint_follower:
   ros__parameters:
     loop_rate: 20
     stop_on_failure: false
+    action_server_result_timeout: 900.0
     waypoint_task_executor_plugin: "wait_at_waypoint"
     wait_at_waypoint:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
@@ -362,7 +364,46 @@ velocity_smoother:
     min_velocity: [-1.0, 0.0, -1.82]
     max_accel: [1.5, 0.0, 0.785]
     max_decel: [-1.5, 0.0, -0.785]
-    odom_topic: "odom"
+    odom_topic: "odometry/filtered"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
+
+# loopback_simulator:
+#   ros__parameters:
+#     base_frame_id: "base_footprint"
+#     odom_frame_id: "odom"
+#     map_frame_id: "map"
+#     scan_frame_id: "laser_frame"  # tb4_loopback_simulator.launch.py remaps to 'rplidar_link'
+#     update_duration: 0.02
+
+# collision_monitor:
+#   ros__parameters:
+#     base_frame_id: "base_footprint"
+#     odom_frame_id: "odom"
+#     cmd_vel_in_topic: "cmd_vel_smoothed"
+#     cmd_vel_out_topic: "cmd_vel"
+#     state_topic: "collision_monitor_state"
+#     transform_tolerance: 0.2
+#     source_timeout: 1.0
+#     base_shift_correction: True
+#     stop_pub_timeout: 2.0
+#     # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
+#     # and robot footprint for "approach" action type.
+#     polygons: ["FootprintApproach"]
+#     FootprintApproach:
+#       type: "polygon"
+#       action_type: "approach"
+#       footprint_topic: "/local_costmap/published_footprint"
+#       time_before_collision: 1.2
+#       simulation_time_step: 0.1
+#       min_points: 6
+#       visualize: False
+#       enabled: True
+#     observation_sources: ["scan"]
+#     scan:
+#       type: "scan"
+#       topic: "scan"
+#       min_height: 0.15
+#       max_height: 2.0
+#       enabled: True

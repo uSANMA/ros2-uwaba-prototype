@@ -47,7 +47,7 @@ def restart_microcontroller(
 
 
 def generate_launch_description():
-    if not restart_microcontroller("http://172.16.14.12/restart.html"):
+    if not restart_microcontroller("http://10.42.0.181/restart.html"):
         rclpy.logging.get_logger("uwaba.launch").error(
             "Starting system in degraded mode..."
         )
@@ -165,7 +165,7 @@ def generate_launch_description():
     # Only start nav2 when server_node starts
     delay_nav2 = RegisterEventHandler(
         OnProcessStart(
-            target_action=server_node,
+            target_action=map_frame,
             on_start=[nav2_bringup_launch, rviz_node],
         )
     )

@@ -6,11 +6,13 @@ uwaba_controller_server_node:
     base_width: 0.1058000177
     base_height: 0.0387500003
     imu_dimensions_xyz: [0.061, -0.004, 0.001875]
-    imu_rotation_rpy: [0.0, 0.0, 0.0]
-    cmd_vel_back: 30.0
-    odom_rate: 30.0
-    joint_state_rate: 30.0
-    comp_filter_alpha: 0.98
+    imu_rotation_rpy: [0.0, 0.0, -1.570796327]
+    comp_filter_alpha: 0.99
+    max_vx_change: 1.0
+    max_vth_change: 1.8
+    max_deltas_xyth: [0.2, 0.2, 0.2]
+    min_dt: 0.01
+    max_dt: 0.04
     main_frame: "base_footprint"
     robot_base_frame: "base_link"
     odom_frame: "odom"
