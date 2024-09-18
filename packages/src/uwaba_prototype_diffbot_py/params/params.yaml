@@ -7,7 +7,7 @@ uwaba_controller_server_node:
     base_height: 0.0387500003
     imu_dimensions_xyz: [0.061, -0.004, 0.001875]
     imu_rotation_rpy: [0.0, 0.0, -1.570796327]
-    comp_filter_alpha: 0.99
+    comp_filter_alpha: 0.98
     max_vx_change: 1.0
     max_vth_change: 1.8
     max_deltas_xyth: [0.2, 0.2, 0.2]

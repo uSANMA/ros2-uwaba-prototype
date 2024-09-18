@@ -496,7 +496,7 @@ class ControllerServer(LifecycleNode):
         self.imu_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.imu_last_time_.sec + (self.imu_last_time_.nanosec / 1e9)
         )
-        self.imu_dt = self.limit_dt(self.imu_dt)
+        self.imu_dt = self.limit_dt(self.imu_dt, current_time,self.imu_last_time_)
 
         (
             self.imu_msg.angular_velocity.x,
@@ -517,23 +517,23 @@ class ControllerServer(LifecycleNode):
             imu_msgs.linear_acceleration.z,
         )
 
-        self.imu_msg.orientation = self.ori_calc_comp_filter(
-            self.alpha,
-            self.imu_dt,
-            self.imu_msg.angular_velocity.x,
-            self.imu_msg.angular_velocity.y,
-            self.imu_msg.angular_velocity.z,
-            self.imu_msg.linear_acceleration.x,
-            self.imu_msg.linear_acceleration.y,
-            self.imu_msg.linear_acceleration.z,
-        )
-
-        # self.imu_msg.orientation = self.ori_calc_simple(
+        # self.imu_msg.orientation = self.ori_calc_comp_filter(
+        #     self.alpha,
         #     self.imu_dt,
         #     self.imu_msg.angular_velocity.x,
         #     self.imu_msg.angular_velocity.y,
         #     self.imu_msg.angular_velocity.z,
+        #     self.imu_msg.linear_acceleration.x,
+        #     self.imu_msg.linear_acceleration.y,
+        #     self.imu_msg.linear_acceleration.z,
         # )
+
+        self.imu_msg.orientation = self.ori_calc_simple(
+            self.imu_dt,
+            self.imu_msg.angular_velocity.x,
+            self.imu_msg.angular_velocity.y,
+            self.imu_msg.angular_velocity.z,
+        )
 
         self.imu_publisher_.publish(self.imu_msg)
         # self.imu_tf_publish()
@@ -549,7 +549,7 @@ class ControllerServer(LifecycleNode):
         self.enc_dt = (current_time.sec + (current_time.nanosec / 1e9)) - (
             self.encoder_last_time_.sec + (self.encoder_last_time_.nanosec / 1e9)
         )
-        self.enc_dt = self.limit_dt(self.enc_dt)
+        self.enc_dt = self.limit_dt(self.enc_dt, current_time, self.encoder_last_time_)
 
         self.encoder_readings_.encoders = encoder_vels.encoders
         if self.encoder_readings_.encoders:
@@ -560,7 +560,7 @@ class ControllerServer(LifecycleNode):
                 self.left_encoder - self.right_encoder
             ) / self.wheels_separation__
 
-            self.limit_velocity_change(new_vx, new_vth)
+            self.limit_velocity_change(new_vx, new_vth, [self.left_encoder, self.right_encoder])
 
             self.pos_calc(self.enc_dt, self.vx, self.vth)
 
@@ -734,12 +734,6 @@ class ControllerServer(LifecycleNode):
     def null_cov_n(self, n=0.0, value=-1.0):
         return np.full((n,), value)
 
-    # def quad_calc(self, set_orientation: Quaternion, az, ax=0.0, ay=0.0) -> Quaternion:
-    #     set_orientation.x, set_orientation.y, set_orientation.z, set_orientation.w = (
-    #         tf_transformations.quaternion_from_euler(ax, ay, az)
-    #     )
-    #     return set_orientation
-
     def quad_calc(self, roll=0.0, pitch=0.0, yaw=0.0) -> Quaternion:
         x, y, z, w = tf_transformations.quaternion_from_euler(roll, pitch, yaw)
         return Quaternion(x=x, y=y, z=z, w=w)
@@ -750,35 +744,51 @@ class ControllerServer(LifecycleNode):
     # def encoder_liveliness_sub_event(self, info):
     #     self.get_logger().warn(f"Liveliness lost! Total count: {info.liveliness_lost}")
 
-    def limit_dt(self, dt):
+    def limit_dt(self, dt, current_time, last_time):
         # Clamp dt between MIN_DT and MAX_DT
-        return max(self.MIN_DT, min(self.MAX_DT, dt))
+        original_dt = dt
+        clamped_dt = max(self.MIN_DT, min(self.MAX_DT, dt))
+        if clamped_dt != original_dt:
+            self.get_logger().warn(
+                f"\033[1;31;40mHad to clamp dt from {original_dt} to {clamped_dt}\033[0m"
+            )
+            self.get_logger().warn(
+                f"\033[1;31;40mHad to clamp from {last_time} to current time {current_time}\033[0m"
+            )
+        return clamped_dt
 
-    def limit_velocity_change(self, new_vx, new_vth):
+    def limit_velocity_change(self, new_vx, new_vth, encoder_vels):
         # Clamp the change in vx
         vx_change = new_vx - self.vx
         if abs(vx_change) > self.MAX_VX_CHANGE:
-            vx_change = self.MAX_VX_CHANGE if vx_change > 0 else -self.MAX_VX_CHANGE
-        self.vx += vx_change
+            self.get_logger().warn(f"\033[1;31;40mHad to clamp velocity! Last vx: {self.vx}, new vx: {new_vx}\033[0m")
+            self.get_logger().warn(f"\033[1;31;40mHad to clamp velocity with msgs from Left encoder: {encoder_vels[0]} and Right encoder: {encoder_vels[1]}\033[0m")
+        else:
+            self.vx = new_vx
 
         # Clamp the change in vth
         vth_change = new_vth - self.vth
         if abs(vth_change) > self.MAX_VTH_CHANGE:
-            vth_change = self.MAX_VTH_CHANGE if vth_change > 0 else -self.MAX_VTH_CHANGE
-        self.vth += vth_change
+            self.get_logger().warn(f"\033[1;31;40mHad to clamp angular velocity! Last vx: {self.vth}, new vx: {new_vth}\033[0m")
+            self.get_logger().warn(f"\033[1;31;40mHad to clamp angular velocity with msgs from Left encoder: {encoder_vels[0]}, Right encoder: {encoder_vels[1]}\033[0m")
+        else:
+            self.vth = new_vth
 
     def limit_position_change(self, delta_x, delta_y, delta_th):
         # Clamp delta_x
         if abs(delta_x) > self.MAX_DELTA_X:
-            delta_x = self.MAX_DELTA_X if delta_x > 0 else -self.MAX_DELTA_X
+            # delta_x = self.MAX_DELTA_X if delta_x > 0 else -self.MAX_DELTA_X
+            self.get_logger().warn("\033[1;31;40mHad to clamp delta_x\033[0m")
 
         # Clamp delta_y
         if abs(delta_y) > self.MAX_DELTA_Y:
-            delta_y = self.MAX_DELTA_Y if delta_y > 0 else -self.MAX_DELTA_Y
+            # delta_y = self.MAX_DELTA_Y if delta_y > 0 else -self.MAX_DELTA_Y
+            self.get_logger().warn("\033[1;31;40mHad to clamp delta_y\033[0m")
 
         # Clamp delta_th
         if abs(delta_th) > self.MAX_DELTA_TH:
-            delta_th = self.MAX_DELTA_TH if delta_th > 0 else -self.MAX_DELTA_TH
+            # delta_th = self.MAX_DELTA_TH if delta_th > 0 else -self.MAX_DELTA_TH
+            self.get_logger().warn("\033[1;31;40mHad to clamp delta_th\033[0m")
 
         return delta_x, delta_y, delta_th
 
